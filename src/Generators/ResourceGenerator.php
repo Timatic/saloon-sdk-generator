@@ -117,6 +117,14 @@ class ResourceGenerator extends Generator
                 $args[] = new Literal(sprintf('$%s', NameHelper::safeVariableName($parameter->name)));
             }
 
+            foreach ($endpoint->headerParameters as $parameter) {
+                if (in_array($parameter->name, $this->config->ignoredHeaderParams)) {
+                    continue;
+                }
+                $this->addPropertyToMethod($method, $parameter);
+                $args[] = new Literal(sprintf('$%s', NameHelper::safeVariableName($parameter->name)));
+            }
+
             $method->setBody(
                 new Literal(sprintf('return $this->connector->send(new %s(%s));', $requestClassNameAlias ?? $requestClassName, implode(', ', $args)))
             );
@@ -132,13 +140,24 @@ class ResourceGenerator extends Generator
     {
         $name = NameHelper::safeVariableName($parameter->name);
 
-        $method
+        $param = $method
             ->addComment(
-                trim(sprintf('@param %s $%s %s', $parameter->type, $name, $parameter->description))
+                trim(
+                    sprintf(
+                        '@param %s $%s %s',
+                        $parameter->type,
+                        $name,
+                        $parameter->description
+                    )
+                )
             )
             ->addParameter($name)
             ->setType($parameter->type)
             ->setNullable($parameter->nullable);
+
+        if ($parameter->nullable) {
+            $param->setDefaultValue(null);
+        }
 
         return $method;
     }

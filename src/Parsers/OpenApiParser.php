@@ -50,7 +50,7 @@ class OpenApiParser implements Parser
             name: $this->openApi->info->title,
             description: $this->openApi->info->description,
             baseUrl: $this->parseBaseUrl($this->openApi->servers),
-            securityRequirements: $this->parseSecurityRequirements($this->openApi->security),
+            securityRequirements: $this->openApi->security !== null ? $this->parseSecurityRequirements($this->openApi->security->getSerializableData()) : [],
             components: $this->parseComponents($this->openApi->components),
             endpoints: $this->parseItems($this->openApi->paths)
         );
@@ -100,7 +100,7 @@ class OpenApiParser implements Parser
     }
 
     /**
-     * @param  SecurityRequirement[]  $security
+     * @param  array  $security
      * @return \Crescat\SaloonSdkGenerator\Data\Generator\SecurityRequirement[]
      */
     protected function parseSecurityRequirements(array $security): array
@@ -108,6 +108,18 @@ class OpenApiParser implements Parser
         $securityRequirements = [];
 
         foreach ($security as $key => $securityOption) {
+            // Handle case where it's already an array (from SecurityRequirements->getSerializableData())
+            if (is_array($securityOption)) {
+                foreach ($securityOption as $name => $scopes) {
+                    $securityRequirements[] = new \Crescat\SaloonSdkGenerator\Data\Generator\SecurityRequirement(
+                        $name,
+                        $scopes
+                    );
+                }
+                continue;
+            }
+
+            // Handle case where it's a SecurityRequirement object
             $data = $securityOption->getSerializableData();
             if (gettype($data) !== 'object') {
                 continue;
@@ -163,10 +175,11 @@ class OpenApiParser implements Parser
             collection: $operation->tags[0] ?? null, // In the real-world, people USUALLY only use one tag...
             response: null, // TODO: implement "definition" parsing
             description: $operation->description,
-            queryParameters: $this->mapParams($operation->parameters, 'query'),
+            queryParameters: $this->mapParams($operation->parameters ?? [], 'query'),
             // TODO: Check if this differs between spec versions
-            pathParameters: $pathParams + $this->mapParams($operation->parameters, 'path'),
-            bodyParameters: $this->parseRequestBody($operation->requestBody) ?? [],
+            pathParameters: $pathParams + $this->mapParams($operation->parameters ?? [], 'path'),
+            bodyParameters: [], // TODO: implement "definition" parsing
+            headerParameters: $this->mapParams($operation->parameters ?? [], 'header'),
         );
     }
 
@@ -206,12 +219,40 @@ class OpenApiParser implements Parser
     }
 
     /**
-     * @param  OpenApiParameter[]  $parameters
+     * @param  array  $parameters  Array of OpenApiParameter or Reference objects
      * @return Parameter[] array
      */
     protected function mapParams(array $parameters, string $in): array
     {
         return collect($parameters)
+            ->map(function ($parameter) {
+                // Resolve Reference objects to their actual Parameter objects
+                if ($parameter instanceof Reference) {
+                    // When using RESOLVE_MODE_INLINE, we need to manually resolve the reference
+                    $refPath = $parameter->getReference();
+
+                    // Parse the reference path (e.g., "#/components/parameters/PathAlbumId")
+                    if (str_starts_with($refPath, '#/components/parameters/')) {
+                        $paramName = str_replace('#/components/parameters/', '', $refPath);
+
+                        // Check if the parameter exists in components
+                        if (isset($this->openApi->components->parameters[$paramName])) {
+                            $resolvedParam = $this->openApi->components->parameters[$paramName];
+
+                            // The resolved parameter might itself be a Reference in some cases
+                            if ($resolvedParam instanceof Reference) {
+                                return null;
+                            }
+
+                            return $resolvedParam;
+                        }
+                    }
+
+                    return null;
+                }
+                return $parameter;
+            })
+            ->filter() // Remove any nulls from failed resolutions
             ->whereInstanceOf(OpenApiParameter::class)
             ->filter(fn (OpenApiParameter $parameter) => $parameter->in == $in)
             ->map(fn (OpenApiParameter $parameter) => new Parameter(
@@ -220,6 +261,7 @@ class OpenApiParser implements Parser
                 name: $parameter->name,
                 description: $parameter->description,
             ))
+            ->values() // Reset array keys
             ->all();
     }
 

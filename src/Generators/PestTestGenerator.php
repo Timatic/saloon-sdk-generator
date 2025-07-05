@@ -36,7 +36,7 @@ class PestTestGenerator implements PostProcessor
     }
 
     /**
-     * @return array|PhpFile[]
+     * @return array|TaggedOutputFile[]
      */
     protected function generatePestTests(): array
     {
@@ -59,22 +59,30 @@ class PestTestGenerator implements PostProcessor
         return $classes;
     }
 
-    protected function generateMainPestFile(): PhpFile
+    protected function generateMainPestFile(): TaggedOutputFile
     {
         $stub = file_get_contents(__DIR__.'/../Stubs/pest.stub');
         $stub = str_replace('{{ namespace }}', $this->config->namespace, $stub);
         $stub = str_replace('{{ name }}', $this->config->connectorName, $stub);
 
-        return PhpFile::fromCode($stub);
+        return new TaggedOutputFile(
+            tag: 'pest',
+            file: $stub,
+            path: 'tests/Pest.php',
+        );
     }
 
-    protected function generateTestCaseFile(): PhpFile
+    protected function generateTestCaseFile(): TaggedOutputFile
     {
         $stub = file_get_contents(__DIR__.'/../Stubs/pest-testcase.stub');
         $stub = str_replace('{{ namespace }}', $this->config->namespace, $stub);
         $stub = str_replace('{{ name }}', $this->config->connectorName, $stub);
 
-        return PhpFile::fromCode($stub);
+        return new TaggedOutputFile(
+            tag: 'pest',
+            file: $stub,
+            path: 'tests/TestCase.php',
+        );
     }
 
     /**
@@ -149,17 +157,26 @@ class PestTestGenerator implements PostProcessor
                 ->values()
                 ->toArray();
 
+            $withoutIgnoredHeaderParams = collect($endpoint->headerParameters)
+                ->reject(fn (Parameter $parameter) => in_array($parameter->name, $this->config->ignoredHeaderParams))
+                ->values()
+                ->toArray();
+
             $combined = [
                 ...$endpoint->pathParameters,
                 ...$endpoint->bodyParameters,
                 ...$withoutIgnoredQueryParams,
+                ...$withoutIgnoredHeaderParams,
             ];
 
             foreach ($combined as $param) {
-                $methodArguments[] = sprintf('%s: %d', Namehelper::safeVariableName($param->name), match ($param->type) {
-                    'integer' => 0,
-                    'boolean' => 'true',
-                    default => "'replace me'",
+                $methodArguments[] = sprintf('%s: %s', NameHelper::safeVariableName($param->name), match ($param->type) {
+                    'string' => "'test string'",
+                    'int', 'integer' => '123',
+                    'float', 'float|int', 'int|float' => '123.45',
+                    'bool', 'boolean' => 'true',
+                    'array' => '[]',
+                    default => 'null',
                 });
             }
 
