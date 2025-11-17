@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.2] - 2025-11-17
+
+### Changed
+- Removed pinned nikic/php-parser dependency constraint to allow v5.x as transitive dependency
+- Upgraded nikic/php-parser from v4.19.4 to v5.6.2 (transitive dependency via PHPUnit)
+- Updated multiple dependencies to latest patch versions for improved compatibility
+
+### Credits
+- Thanks to @jaulz for the php-parser dependency update in PR #32
+
 ## [1.4.1] - 2025-11-06
 
 ### Changed

@@ -43,7 +43,7 @@
         }
     },
     "scripts": {
-        "build": "php ./codegen app:build sdkgenerator --build-version=1.4.1",
+        "build": "php ./codegen app:build sdkgenerator --build-version=1.4.2",
         "clean": "rm -rf ./tests/Output/*",
         "generate:fiken": "./codegen generate:sdk --force --namespace=Crescat\\\\Fiken --type=openapi --name=Fiken tests/Samples/fiken.yaml --output tests/Output/Fiken --pest",
         "generate:gocardless": "./codegen generate:sdk --force --namespace=Crescat\\\\GoCardless --type=openapi --name=GoCardless tests/Samples/gocardless.json --output tests/Output/GoCardless --pest",
