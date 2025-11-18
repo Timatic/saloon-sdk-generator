@@ -147,7 +147,7 @@ class PestTestGenerator implements PostProcessor
             $requestClassName = $this->getRequestClassName($endpoint);
             $requestClassNameAlias = $requestClassName == $resourceName ? "{$requestClassName}Request" : null;
 
-            $functionStub = file_get_contents($this->getTestFunctionStubPath());
+            $functionStub = file_get_contents($this->getTestFunctionStubPath($endpoint));
 
             $functionStub = str_replace('{{ clientName }}', NameHelper::safeVariableName($this->config->connectorName), $functionStub);
             $functionStub = str_replace('{{ requestClass }}', $requestClassNameAlias ?? $requestClassName, $functionStub);
@@ -189,6 +189,8 @@ class PestTestGenerator implements PostProcessor
 
             $methodArguments = Str::wrap(implode(",\n\t\t", $methodArguments), "\n\t\t", "\n\t");
             $functionStub = str_replace('{{ methodArguments }}', $methodArguments, $functionStub);
+
+            $functionStub = $this->replaceAdditionalStubVariables($functionStub, $endpoint, $resourceName, $requestClassName);
 
             $fileStub .= "\n\n{$functionStub}";
         }
@@ -294,7 +296,7 @@ class PestTestGenerator implements PostProcessor
     /**
      * Hook: Get path to test function stub template
      */
-    protected function getTestFunctionStubPath(): string
+    protected function getTestFunctionStubPath(Endpoint $endpoint): string
     {
         return __DIR__.'/../Stubs/pest-resource-test-func.stub';
     }
@@ -321,5 +323,17 @@ class PestTestGenerator implements PostProcessor
     protected function getTestPath(string $resourceName): string
     {
         return "tests/{$resourceName}Test.php";
+    }
+
+    /**
+     * Hook: Replace additional stub variables to replace in test function stubs
+     */
+    protected function replaceAdditionalStubVariables(
+        string $functionStub,
+        Endpoint $endpoint,
+        string $resourceName,
+        string $requestClassName
+    ): string {
+        return $functionStub;
     }
 }
