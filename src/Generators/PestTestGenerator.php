@@ -198,7 +198,7 @@ class PestTestGenerator implements PostProcessor
             return new TaggedOutputFile(
                 tag: 'pest',
                 file: $fileStub,
-                path: "tests/{$resourceName}Test.php",
+                path: $this->getTestPath($resourceName),
             );
         } catch (Exception $e) {
 
@@ -313,5 +313,13 @@ class PestTestGenerator implements PostProcessor
     protected function getMethodName(Endpoint $endpoint, string $requestClassName): string
     {
         return NameHelper::safeVariableName($requestClassName);
+    }
+
+    /**
+     * Hook: Get the test file path for a resource
+     */
+    protected function getTestPath(string $resourceName): string
+    {
+        return "tests/{$resourceName}Test.php";
     }
 }
