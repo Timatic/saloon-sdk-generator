@@ -177,7 +177,10 @@ class PestTestGenerator implements PostProcessor
             ];
 
             foreach ($combined as $param) {
-                $methodArguments[] = sprintf('%s: %s', NameHelper::safeVariableName($param->name), match ($param->type) {
+                // Hook: Allow customization of parameter names in tests
+                $paramName = $this->getTestParameterName($param, $endpoint);
+
+                $methodArguments[] = sprintf('%s: %s', $paramName, match ($param->type) {
                     'string' => "'test string'",
                     'int', 'integer' => '123',
                     'float', 'float|int', 'int|float' => '123.45',
@@ -335,5 +338,19 @@ class PestTestGenerator implements PostProcessor
         string $requestClassName
     ): string {
         return $functionStub;
+    }
+
+    /**
+     * Hook: Get parameter name for test method arguments
+     *
+     * Override this to customize parameter names in tests.
+     * You can check if it's a path parameter with: in_array($parameter, $endpoint->pathParameters, true)
+     *
+     * @param  Parameter  $parameter  The parameter to get the name for
+     * @param  Endpoint  $endpoint  The endpoint being tested
+     */
+    protected function getTestParameterName(Parameter $parameter, Endpoint $endpoint): string
+    {
+        return NameHelper::safeVariableName($parameter->name);
     }
 }
