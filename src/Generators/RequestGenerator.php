@@ -146,11 +146,15 @@ class RequestGenerator extends Generator
     }
 
     /**
-     * Transform a path parameter by applying the ID suffix if configured.
+     * Transform a path parameter by appending "Id" suffix if not already present.
      */
     protected function transformPathParameter(Parameter $parameter): Parameter
     {
-        if (! $this->config->appendIdToPathParameters) {
+        // Convert to safe variable name first to check properly
+        $safeVariableName = NameHelper::safeVariableName($parameter->name);
+
+        // Don't add "Id" suffix if it already ends with "Id"
+        if (str_ends_with($safeVariableName, 'Id')) {
             return $parameter;
         }
 
@@ -171,7 +175,8 @@ class RequestGenerator extends Generator
     {
         $baseName = NameHelper::safeVariableName($segment);
 
-        if (! $this->config->appendIdToPathParameters) {
+        // Don't add "Id" suffix if it already ends with "Id"
+        if (str_ends_with($baseName, 'Id')) {
             return $baseName;
         }
 

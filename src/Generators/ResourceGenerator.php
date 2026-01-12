@@ -169,11 +169,12 @@ class ResourceGenerator extends Generator
     }
 
     /**
-     * Transform a path parameter by applying the ID suffix if configured.
+     * Transform a path parameter by appending "Id" suffix if not already present.
      */
     protected function transformPathParameter(Parameter $parameter): Parameter
     {
-        if (! $this->config->appendIdToPathParameters) {
+        // Don't add "Id" suffix if it already ends with "Id"
+        if (str_ends_with($parameter->name, 'Id')) {
             return $parameter;
         }
 
