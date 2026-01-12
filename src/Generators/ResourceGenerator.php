@@ -196,6 +196,11 @@ class ResourceGenerator extends Generator
     {
         $pathBasedName = NameHelper::pathBasedName($endpoint);
 
+        // Optionally append "Request" suffix if configured
+        if ($this->config->suffixRequestClasses && ! str_ends_with($requestClassName, 'Request')) {
+            $requestClassName .= 'Request';
+        }
+
         return NameHelper::resourceClassName($endpoint->name ?: $pathBasedName);
     }
 

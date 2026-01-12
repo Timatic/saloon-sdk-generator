@@ -45,6 +45,11 @@ class RequestGenerator extends Generator
         // Hook: Allow customization of request class name
         $className = $this->getRequestClassName($endpoint);
 
+        // Optionally append "Request" suffix if configured
+        if ($this->config->suffixRequestClasses && ! str_ends_with($className, 'Request')) {
+            $className .= 'Request';
+        }
+
         $classType = new ClassType($className);
 
         $classFile = new PhpFile;
