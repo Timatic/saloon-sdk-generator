@@ -77,7 +77,7 @@ class RequestGenerator extends Generator
                 collect($endpoint->pathSegments)
                     ->map(function ($segment) {
                         return Str::startsWith($segment, ':')
-                            ? new Literal(sprintf('{$this->%s}', NameHelper::safeVariableName($segment)))
+                            ? new Literal(sprintf('{$this->%s}', $this->getPathParameterName($segment)))
                             : $segment;
                     })
                     ->pipe(function (Collection $segments) {
@@ -90,7 +90,8 @@ class RequestGenerator extends Generator
 
         // Priority 1. - Path Parameters
         foreach ($endpoint->pathParameters as $pathParam) {
-            MethodGeneratorHelper::addParameterAsPromotedProperty($classConstructor, $pathParam);
+            $transformedParam = $this->transformPathParameter($pathParam);
+            MethodGeneratorHelper::addParameterAsPromotedProperty($classConstructor, $transformedParam);
         }
 
         // Priority 2. - Body Parameters
@@ -142,5 +143,38 @@ class RequestGenerator extends Generator
             ->add($classType);
 
         return $classFile;
+    }
+
+    /**
+     * Transform a path parameter by applying the ID suffix if configured.
+     */
+    protected function transformPathParameter(Parameter $parameter): Parameter
+    {
+        if (! $this->config->appendIdToPathParameters) {
+            return $parameter;
+        }
+
+        $newName = $parameter->name.'Id';
+
+        return new Parameter(
+            type: $parameter->type,
+            nullable: $parameter->nullable,
+            name: $newName,
+            description: $parameter->description
+        );
+    }
+
+    /**
+     * Get the transformed path parameter name from a path segment.
+     */
+    protected function getPathParameterName(string $segment): string
+    {
+        $baseName = NameHelper::safeVariableName($segment);
+
+        if (! $this->config->appendIdToPathParameters) {
+            return $baseName;
+        }
+
+        return $baseName.'Id';
     }
 }

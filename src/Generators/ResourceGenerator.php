@@ -96,8 +96,9 @@ class ResourceGenerator extends Generator
             $args = [];
 
             foreach ($endpoint->pathParameters as $parameter) {
-                $this->addPropertyToMethod($method, $parameter);
-                $args[] = new Literal(sprintf('$%s', NameHelper::safeVariableName($parameter->name)));
+                $transformedParam = $this->transformPathParameter($parameter);
+                $this->addPropertyToMethod($method, $transformedParam);
+                $args[] = new Literal(sprintf('$%s', NameHelper::safeVariableName($transformedParam->name)));
             }
 
             foreach ($endpoint->bodyParameters as $parameter) {
@@ -165,5 +166,24 @@ class ResourceGenerator extends Generator
     protected function recordDuplicatedRequestName(string $requestClassName, string $deduplicatedMethodName): void
     {
         $this->duplicateRequests[$requestClassName][] = $deduplicatedMethodName;
+    }
+
+    /**
+     * Transform a path parameter by applying the ID suffix if configured.
+     */
+    protected function transformPathParameter(Parameter $parameter): Parameter
+    {
+        if (! $this->config->appendIdToPathParameters) {
+            return $parameter;
+        }
+
+        $newName = $parameter->name.'Id';
+
+        return new Parameter(
+            type: $parameter->type,
+            nullable: $parameter->nullable,
+            name: $newName,
+            description: $parameter->description
+        );
     }
 }

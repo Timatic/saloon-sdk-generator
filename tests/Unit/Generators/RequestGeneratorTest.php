@@ -109,3 +109,46 @@ test('Default Query', function () {
         ->and($defaultQuery->getBody())->toBe("return array_filter(['channel_id' => \$this->channelId]);\n");
 
 });
+
+test('Path parameter ID suffix when enabled', function () {
+    $config = new Config(
+        connectorName: 'MyConnector',
+        namespace: 'VendorName',
+        appendIdToPathParameters: true
+    );
+
+    $generator = new RequestGenerator($config);
+    $spec = new ApiSpecification(
+        name: 'ApiName',
+        description: 'Example API',
+        baseUrl: new BaseUrl(url: 'https://api.example.com'),
+        securityRequirements: [],
+        components: new Components,
+        endpoints: [
+            new Endpoint(
+                name: 'getUser',
+                method: Method::GET,
+                pathSegments: ['users', ':user'],
+                collection: 'Users',
+                response: null,
+                description: 'Get user',
+                queryParameters: [],
+                pathParameters: [new Parameter('int', false, 'user', 'ID of the user')],
+                bodyParameters: []
+            ),
+        ]
+    );
+
+    $phpFiles = $generator->generate($spec);
+    $class = $phpFiles[0]->getNamespaces()['VendorName\Requests\Users']->getClasses()['GetUser'];
+
+    // Check constructor has userId parameter (not user)
+    $constructor = $class->getMethods()['__construct'];
+    $userIdParam = $constructor->getParameter('userId');
+    expect($userIdParam->getName())->toBe('userId')
+        ->and($userIdParam->getType())->toBe('int');
+
+    // Check resolveEndpoint uses userId
+    $resolveEndpoint = $class->getMethods()['resolveEndpoint'];
+    expect($resolveEndpoint->getBody())->toBe("return \"/users/{\$this->userId}\";\n");
+});

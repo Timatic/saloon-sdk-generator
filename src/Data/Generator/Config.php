@@ -14,6 +14,7 @@ class Config
      * @param  array  $ignoredQueryParams  List of query parameters that should be ignored.
      * @param  array  $ignoredBodyParams  List of body parameters that should be ignored.
      * @param  array  $ignoredHeaderParams  List of header parameters that should be ignored.
+     * @param  bool  $appendIdToPathParameters  Whether to append "Id" suffix to path parameter names (e.g., user → userId).
      * @param  array  $extra  Additional configuration for custom code generators.
      */
     public function __construct(
@@ -26,6 +27,7 @@ class Config
         public readonly array $ignoredQueryParams = [],
         public readonly array $ignoredBodyParams = [],
         public readonly array $ignoredHeaderParams = ['Authorization', 'Content-Type', 'Accept', 'Accept-Language', 'User-Agent'],
+        public readonly bool $appendIdToPathParameters = false,
         public readonly array $extra = [],
 
     ) {}
