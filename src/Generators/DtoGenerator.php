@@ -272,7 +272,10 @@ class DtoGenerator extends Generator
     {
         return match ($type) {
             'integer' => 'int',
-            'string' => 'string',
+            'string' => match ($format) {
+                'date-time' => '\\Carbon\\Carbon',
+                default => 'string',
+            },
             'boolean' => 'bool',
             'object' => 'object', // Recurse
             'number' => match ($format) {
