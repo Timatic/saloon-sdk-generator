@@ -90,95 +90,107 @@ class FactoryGenerator implements PostProcessor
 
         foreach ($dtoClass->getNamespaces() as $ns) {
             foreach ($ns->getClasses() as $class) {
-                // First, collect properties from promoted constructor parameters (Spatie Data style)
-                foreach ($class->getMethods() as $method) {
-                    if ($method->getName() === '__construct') {
-                        foreach ($method->getParameters() as $param) {
-                            if (! $param instanceof PromotedParameter) {
-                                continue;
-                            }
-
-                            $propName = $param->getName();
-
-                            if (in_array($propName, $propertiesToSkip, true)) {
-                                continue;
-                            }
-
-                            $typeName = $param->getType();
-                            $typeName = is_string($typeName) ? $typeName : null;
-
-                            $isDateTime = $this->isDateTimeType($typeName);
-
-                            $properties[] = [
-                                'name' => $propName,
-                                'type' => $typeName,
-                                'isDateTime' => $isDateTime,
-                            ];
-                        }
-                    }
-                }
-
-                // Then, collect from public properties (Model-based style)
-                foreach ($class->getProperties() as $property) {
-                    $propName = $property->getName();
-
-                    if (in_array($propName, $propertiesToSkip, true)) {
-                        continue;
-                    }
-
-                    if ($property->isStatic() || $property->isPrivate()) {
-                        continue;
-                    }
-
-                    // Skip if already added from promoted params
-                    $alreadyAdded = collect($properties)->contains('name', $propName);
-                    if ($alreadyAdded) {
-                        continue;
-                    }
-
-                    // Skip relationship properties (they have Relationship attribute)
-                    $hasRelationshipAttribute = false;
-                    foreach ($property->getAttributes() as $attribute) {
-                        $attrName = $attribute->getName();
-                        if ($attrName === 'Relationship' || str_ends_with($attrName, '\\Relationship')) {
-                            $hasRelationshipAttribute = true;
-                            break;
-                        }
-                    }
-
-                    if ($hasRelationshipAttribute) {
-                        continue;
-                    }
-
-                    // Check if property has DateTime attribute
-                    $isDateTime = false;
-                    foreach ($property->getAttributes() as $attribute) {
-                        $attrName = $attribute->getName();
-                        if ($attrName === 'DateTime' || str_ends_with($attrName, '\\DateTime')) {
-                            $isDateTime = true;
-                            break;
-                        }
-                    }
-
-                    $typeName = $property->getType();
-                    $typeName = is_string($typeName) ? $typeName : null;
-
-                    if (! $isDateTime) {
-                        $isDateTime = $this->isDateTimeType($typeName);
-                    }
-
-                    $properties[] = [
-                        'name' => $propName,
-                        'type' => $typeName,
-                        'isDateTime' => $isDateTime,
-                    ];
-                }
+                $properties = $this->collectPromotedConstructorProperties($class, $propertiesToSkip);
+                $properties = $this->collectPublicProperties($class, $properties, $propertiesToSkip);
 
                 break 2;
             }
         }
 
         return $properties;
+    }
+
+    /**
+     * Collect properties from promoted constructor parameters (Spatie Data style).
+     *
+     * @return array<array{name: string, type: ?string, isDateTime: bool}>
+     */
+    protected function collectPromotedConstructorProperties(ClassType $class, array $propertiesToSkip): array
+    {
+        $properties = [];
+
+        if (! $class->hasMethod('__construct')) {
+            return $properties;
+        }
+
+        foreach ($class->getMethod('__construct')->getParameters() as $param) {
+            if (! $param instanceof PromotedParameter) {
+                continue;
+            }
+
+            $propName = $param->getName();
+
+            if (in_array($propName, $propertiesToSkip, true)) {
+                continue;
+            }
+
+            $typeName = is_string($param->getType()) ? $param->getType() : null;
+
+            $properties[] = [
+                'name' => $propName,
+                'type' => $typeName,
+                'isDateTime' => $this->isDateTimeType($typeName),
+            ];
+        }
+
+        return $properties;
+    }
+
+    /**
+     * Collect from public properties (Model-based style), skipping already-collected promoted params.
+     *
+     * @return array<array{name: string, type: ?string, isDateTime: bool}>
+     */
+    protected function collectPublicProperties(ClassType $class, array $properties, array $propertiesToSkip): array
+    {
+        $existingNames = array_column($properties, 'name');
+
+        foreach ($class->getProperties() as $property) {
+            $propName = $property->getName();
+
+            if (in_array($propName, $propertiesToSkip, true)) {
+                continue;
+            }
+
+            if ($property->isStatic() || $property->isPrivate()) {
+                continue;
+            }
+
+            if (in_array($propName, $existingNames, true)) {
+                continue;
+            }
+
+            if ($this->hasAttribute($property, 'Relationship')) {
+                continue;
+            }
+
+            $typeName = is_string($property->getType()) ? $property->getType() : null;
+            $isDateTime = $this->hasAttribute($property, 'DateTime') || $this->isDateTimeType($typeName);
+
+            $properties[] = [
+                'name' => $propName,
+                'type' => $typeName,
+                'isDateTime' => $isDateTime,
+            ];
+        }
+
+        return $properties;
+    }
+
+    /**
+     * Check if a property has a specific attribute (by short name or fully qualified name).
+     */
+    protected function hasAttribute(mixed $property, string $attributeName): bool
+    {
+        foreach ($property->getAttributes() as $attribute) {
+            $attrName = $attribute->getName();
+
+            if ($attrName === $attributeName || str_ends_with($attrName, "\\{$attributeName}")) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -221,8 +233,7 @@ class FactoryGenerator implements PostProcessor
 
         $lines[] = '];';
 
-        $hasDateTime = collect($properties)->contains('isDateTime', true);
-        if ($hasDateTime) {
+        if (in_array(true, array_column($properties, 'isDateTime'), true)) {
             $namespace->addUse('Carbon\\Carbon');
         }
 
@@ -288,11 +299,7 @@ class FactoryGenerator implements PostProcessor
             return "number_format(\$this->faker->randomFloat(2, 50, 150), 2, '.', '')";
         }
 
-        if (str_contains($lowerName, 'description')) {
-            return '$this->faker->sentence()';
-        }
-
-        if (str_contains($lowerName, 'title')) {
+        if (str_contains($lowerName, 'description') || str_contains($lowerName, 'title')) {
             return '$this->faker->sentence()';
         }
 
@@ -308,7 +315,7 @@ class FactoryGenerator implements PostProcessor
             return '$this->faker->word()';
         }
 
-        if ($propertyType == 'string') {
+        if ($propertyType === 'string') {
             return '$this->faker->word()';
         }
 
