@@ -26,6 +26,7 @@ class Endpoint
         public array $pathParameters = [],
         public array $bodyParameters = [],
         public array $headerParameters = [],
+        public ?string $requestBodySchema = null,
     ) {}
 
     /**

@@ -178,6 +178,7 @@ class OpenApiParser implements Parser
             pathParameters: $pathParams + $this->mapParams($operation->parameters ?? [], 'path'),
             bodyParameters: [], // TODO: implement "definition" parsing
             headerParameters: $this->mapParams($operation->parameters ?? [], 'header'),
+            requestBodySchema: $this->extractRequestBodySchemaRef($operation->requestBody),
         );
     }
 
@@ -240,9 +241,48 @@ class OpenApiParser implements Parser
         return null;
     }
 
+    /**
+     * Extract the schema reference name from a RequestBody.
+     *
+     * @return string|null The schema name (e.g., "CreateAccountDto") or null if not found
+     */
+    protected function extractRequestBodySchemaRef(RequestBody|Reference|null $requestBody): ?string
+    {
+        if (! $requestBody) {
+            return null;
+        }
+
+        try {
+            // Assume that the requestBody content is of type 'application/json'
+            $content = $requestBody->content['application/json'] ?? null;
+
+            if (! $content) {
+                return null;
+            }
+
+            $schema = $content->schema;
+
+            // If schema is a Reference, extract the schema name from the $ref
+            if ($schema instanceof Reference) {
+                $ref = $schema->getReference();
+                if (Str::startsWith($ref, '#/components/schemas/')) {
+                    return Str::afterLast($ref, '/');
+                }
+            }
+
+            return null;
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Parse request body parameters from a RequestBody.
+     *
+     * @return Parameter[]
+     */
     protected function parseRequestBody(RequestBody|Reference|null $requestBody): ?array
     {
-
         if (! $requestBody) {
             return [];
         }
@@ -268,7 +308,7 @@ class OpenApiParser implements Parser
                 }
             }
 
-            if ($content && $schema?->type != null) {
+            if ($content && property_exists($schema, 'type') && $schema?->type != null) {
                 foreach ($schema->properties as $name => $property) {
                     // Resolve property if it's a reference
                     if ($property instanceof Reference) {
