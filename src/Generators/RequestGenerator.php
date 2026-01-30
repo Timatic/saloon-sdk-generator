@@ -14,16 +14,26 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Nette\PhpGenerator\ClassType;
 use Nette\PhpGenerator\Literal;
+use Nette\PhpGenerator\Method;
 use Nette\PhpGenerator\PhpFile;
+use Nette\PhpGenerator\PhpNamespace;
 use Saloon\Contracts\Body\HasBody;
 use Saloon\Enums\Method as SaloonHttpMethod;
 use Saloon\Http\Request;
+use Saloon\Http\Response;
 use Saloon\Traits\Body\HasJsonBody;
+use Spatie\LaravelData\Data;
 
 class RequestGenerator extends Generator
 {
+    protected ApiSpecification $specification;
+
+    protected ?string $responseDataPath = null;
+
     public function generate(ApiSpecification $specification): PhpFile|array
     {
+        $this->specification = $specification;
+
         $classes = [];
 
         foreach ($specification->endpoints as $endpoint) {
@@ -72,6 +82,11 @@ class RequestGenerator extends Generator
                 ->addUse(HasJsonBody::class);
         }
 
+        // Add hydration support to GET, POST, PUT, and PATCH requests
+        if ($this->shouldHaveHydration($endpoint)) {
+            $this->addHydrationSupport($classType, $namespace, $endpoint);
+        }
+
         // Hook: Customize request class (add interfaces, traits, properties)
         $this->customizeRequestClass($classType, $namespace, $endpoint);
 
@@ -108,6 +123,10 @@ class RequestGenerator extends Generator
             $customizedParam = clone $pathParam;
             $customizedParam->name = $this->getConstructorParameterName($pathParam->name, true);
             MethodGeneratorHelper::addParameterAsPromotedProperty($classConstructor, $customizedParam);
+        }
+
+        if ($this->isMutationRequest($endpoint)) {
+            $this->addRequestBodyParameter($endpoint, $namespace, $classConstructor, $classType);
         }
 
         // Priority 2. - Body Parameters
@@ -204,17 +223,6 @@ class RequestGenerator extends Generator
      * Called after class creation but before properties/methods are added.
      * Use this to add custom interfaces, traits, or class-level modifications.
      *
-     * Example implementation:
-     * <code>
-     * // Add Paginatable interface to collection requests
-     * if ($endpoint->method->isGet() && empty($endpoint->pathParameters)) {
-     *     $namespace->addUse(Paginatable::class);
-     *     $classType->addImplement(Paginatable::class);
-     *
-     *     $namespace->addUse(HasFilters::class);
-     *     $classType->addTrait(HasFilters::class);
-     * }
-     * </code>
      *
      * @param  ClassType  $classType  The class being generated
      * @param  \Nette\PhpGenerator\PhpNamespace  $namespace  The namespace to add imports to
@@ -231,26 +239,6 @@ class RequestGenerator extends Generator
      * Called after standard parameters but only when endpoint has NO body parameters.
      * Use this to add custom constructor parameters and defaultBody method.
      *
-     * Example implementation:
-     * <code>
-     * // Add Model data parameter for mutation requests
-     * if ($endpoint->method->isPost() || $endpoint->method->isPatch()) {
-     *     $namespace->addUse(Model::class);
-     *     $dataParam = new Parameter(
-     *         type: 'Model|array|null',
-     *         nullable: true,
-     *         name: 'data',
-     *         description: 'Request data',
-     *     );
-     *     MethodGeneratorHelper::addParameterAsPromotedProperty($classConstructor, $dataParam);
-     *
-     *     $classType->addMethod('defaultBody')
-     *         ->setProtected()
-     *         ->setReturnType('array')
-     *         ->addBody('return $this->data ? $this->data->toJsonApi() : [];');
-     * }
-     * </code>
-     *
      * @param  \Nette\PhpGenerator\Method  $classConstructor  The constructor method
      * @param  ClassType  $classType  The class being generated
      * @param  \Nette\PhpGenerator\PhpNamespace  $namespace  The namespace to add imports to
@@ -259,6 +247,37 @@ class RequestGenerator extends Generator
     protected function customizeConstructor($classConstructor, ClassType $classType, $namespace, Endpoint $endpoint): void
     {
         // Default: no customization
+    }
+
+    protected function addRequestBodyParameter(Endpoint $endpoint, PhpNamespace $namespace, $classConstructor, $classType)
+    {
+        $dtoType = $this->getRequestBodyDtoType($endpoint);
+
+        if ($dtoType) {
+            $namespace->addUse($dtoType);
+            $typeHint = $dtoType.'|array|null';
+        } else {
+            $namespace->addUse(Data::class);
+            $typeHint = Data::class.'|array|null';
+        }
+
+        $dataParam = new Parameter(
+            type: $typeHint,
+            nullable: true,
+            name: 'data',
+            description: 'Request data',
+        );
+
+        MethodGeneratorHelper::addParameterAsPromotedProperty($classConstructor, $dataParam);
+
+        $classType->addMethod('defaultBody')
+            ->setProtected()
+            ->setReturnType('array')
+            ->addBody('if ($this->data instanceof Model) {')
+            ->addBody('    return $this->data->toArray();')
+            ->addBody('}')
+            ->addBody('')
+            ->addBody('return $this->data ?? [];');
     }
 
     /**
@@ -291,5 +310,155 @@ class RequestGenerator extends Generator
     protected function afterRequestClassGenerated(PhpFile $phpFile, Endpoint $endpoint): void
     {
         // Default: no modifications
+    }
+
+    /**
+     * Determine if endpoint should have DTO hydration support.
+     * By default, all GET, POST, PUT, and PATCH requests get hydration.
+     */
+    protected function shouldHaveHydration(Endpoint $endpoint): bool
+    {
+        return $endpoint->method->isGet()
+            || $endpoint->method->isPost()
+            || $endpoint->method->isPatch()
+            || $endpoint->method->isPut();
+    }
+
+    /**
+     * Determine if endpoint is a collection request.
+     * By default, GET requests without path parameters are considered collections.
+     */
+    protected function isCollectionRequest(Endpoint $endpoint): bool
+    {
+        return $endpoint->method->isGet() && empty($endpoint->pathParameters);
+    }
+
+    /**
+     * Determine if endpoint is a mutation request (POST/PATCH/PUT).
+     */
+    protected function isMutationRequest(Endpoint $endpoint): bool
+    {
+        return $endpoint->method->isPost() || $endpoint->method->isPatch() || $endpoint->method->isPut();
+    }
+
+    /**
+     * Get the DTO class name from endpoint.
+     * This is a simplified version - override for custom logic.
+     */
+    protected function getDtoClassName(Endpoint $endpoint): ?string
+    {
+        if (! isset($endpoint->response['schema'])) {
+            return null;
+        }
+
+        $schema = $endpoint->response['schema'];
+        if (is_string($schema)) {
+            return $schema;
+        }
+
+        // Try to extract from response schema if available
+        if (is_array($schema) && array_key_exists('$ref', $schema)) {
+            $ref = $endpoint->response['schema']['$ref'];
+
+            return basename(str_replace('#/components/schemas/', '', $ref));
+        }
+
+        return null;
+    }
+
+    /**
+     * Get the request body DTO type for mutation requests.
+     * Returns the specific DTO class or fallback to Model class.
+     */
+    protected function getRequestBodyDtoType(Endpoint $endpoint): ?string
+    {
+        if (! isset($endpoint->requestBodySchema)) {
+            return null;
+        }
+
+        $schema = $endpoint->requestBodySchema;
+        if (is_string($schema)) {
+            return "\\{$this->config->namespace}\\Dto\\{$schema}";
+        }
+
+        // Try to extract from response schema if available
+        if (is_array($schema) && array_key_exists('$ref', $schema)) {
+            $ref = $endpoint->requestBodySchema['$ref'];
+            $dtoName = basename(str_replace('#/components/schemas/', '', $ref));
+
+            return "\\{$this->config->namespace}\\Dto\\{$dtoName}";
+        }
+
+        return null;
+    }
+
+    /**
+     * Get Foundation class with target namespace.
+     * Helper to reference Foundation classes from the target SDK.
+     */
+    protected function foundationClass(string $className): string
+    {
+        return "{$this->config->namespace}\\Foundation\\{$className}";
+    }
+
+    /**
+     * Add DTO hydration support to request class.
+     * Generates createDtoFromResponse() method using Spatie Data.
+     */
+    protected function addHydrationSupport(ClassType $classType, PhpNamespace $namespace, Endpoint $endpoint): void
+    {
+        $dtoClassName = $this->getDtoClassName($endpoint);
+
+        if (! $dtoClassName) {
+            return;
+        }
+
+        $dtoFqcn = "{$this->config->namespace}\\Dto\\{$dtoClassName}";
+
+        // Add imports
+        $namespace->addUse(Response::class);
+        $namespace->addUse($dtoFqcn);
+
+        // Add $model property for reference
+        $classType->addProperty('model')
+            ->setProtected()
+            ->setValue(new Literal("{$dtoClassName}::class"));
+
+        // Add createDtoFromResponse method
+        $method = $classType->addMethod('createDtoFromResponse')
+            ->setReturnType('mixed');
+
+        $param = $method->addParameter('response');
+        $param->setType(Response::class);
+
+        // Use hook method to generate method body with Spatie Data
+        $this->addHydrationMethodBody($method, $endpoint, $dtoClassName);
+    }
+
+    /**
+     * Generate the body of createDtoFromResponse method.
+     * Override this to customize hydration logic for different API formats.
+     */
+    protected function addHydrationMethodBody(Method $method, Endpoint $endpoint, string $dtoClassName): void
+    {
+        if ($this->isCollectionRequest($endpoint)) {
+            // Collection: use collect()->map() for Laravel Collection return type
+            if ($this->responseDataPath) {
+                $method->addBody('$data = $response->json(?);', [$this->responseDataPath]);
+            } else {
+                $method->addBody('$data = $response->json();');
+            }
+            $method->addBody('');
+            $method->addBody('return collect($data)->map(');
+            $method->addBody('    fn(array $item) => '.$dtoClassName.'::from($item)');
+            $method->addBody(');');
+        } else {
+            // Single resource: use DTO::from() directly
+            if ($this->responseDataPath) {
+                $method->addBody('return '.$dtoClassName.'::from($response->json(?));', [$this->responseDataPath]);
+            } else {
+                $method->addBody('return '.$dtoClassName.'::from($response->json());');
+            }
+        }
     }
 }
