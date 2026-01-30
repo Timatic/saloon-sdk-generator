@@ -20,7 +20,7 @@ class GenerateSdk extends Command
 {
     protected $signature = 'generate:sdk
                             {path : Path to the API specification file to generate the SDK from, must be a local file}
-                            {--type=postman : The type of API Specification (postman, openapi)}
+                            {--type=openapi : The type of API Specification (postman, openapi)}
                             {--name=Unnamed : The name of the SDK}
                             {--namespace=App\\Sdk : The root namespace of the SDK}
                             {--output=./build : The output path where the code will be created, will be created if it does not exist.}
