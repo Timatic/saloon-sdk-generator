@@ -134,7 +134,7 @@ class PestTestGenerator implements PostProcessor
 
         $fileStub = file_get_contents($this->getTestStubPath());
 
-        $fileStub = str_replace('{{ prelude }}', '// Generated '.date('Y-m-d H:i:s'), $fileStub);
+        $fileStub = str_replace('{{ prelude }}', '', $fileStub);
         $fileStub = str_replace('{{ connectorName }}', $this->config->connectorName, $fileStub);
         $fileStub = str_replace('{{ namespace }}', $this->config->namespace, $fileStub);
         $fileStub = str_replace('{{ name }}', $this->config->connectorName, $fileStub);
