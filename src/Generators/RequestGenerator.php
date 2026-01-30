@@ -270,10 +270,12 @@ class RequestGenerator extends Generator
 
         MethodGeneratorHelper::addParameterAsPromotedProperty($classConstructor, $dataParam);
 
+        $namespace->addUse(Data::class);
+
         $classType->addMethod('defaultBody')
             ->setProtected()
             ->setReturnType('array')
-            ->addBody('if ($this->data instanceof Model) {')
+            ->addBody('if ($this->data instanceof Data) {')
             ->addBody('    return $this->data->toArray();')
             ->addBody('}')
             ->addBody('')
