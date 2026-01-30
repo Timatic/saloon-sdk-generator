@@ -105,15 +105,68 @@ class MutationRequestTestGenerator
             return "new {$shortClassName}()";
         }
 
+        // Reflect on the DTO to get parameter types
+        $parametersByName = [];
+        try {
+            $reflection = new \ReflectionClass($dtoClassName);
+            $constructor = $reflection->getConstructor();
+
+            if ($constructor) {
+                foreach ($constructor->getParameters() as $param) {
+                    $parametersByName[$param->getName()] = $param;
+                }
+            }
+        } catch (\ReflectionException $e) {
+            // If reflection fails, continue without type info
+        }
+
         $parameters = [];
         foreach ($mockData as $key => $value) {
-            $formattedValue = $this->formatValue($value);
+            $param = $parametersByName[$key] ?? null;
+            $formattedValue = $this->formatValueForParameter($value, $param);
             $parameters[] = "$key: $formattedValue";
         }
 
         $paramString = implode(",\n        ", $parameters);
 
         return "new {$shortClassName}(\n        {$paramString}\n    )";
+    }
+
+    /**
+     * Format a value for a specific parameter, using type information if available
+     */
+    protected function formatValueForParameter(mixed $value, ?\ReflectionParameter $param): string
+    {
+        // Check if parameter is Carbon/DateTime type
+        if ($param) {
+            $type = $param->getType();
+
+            // Handle both ReflectionNamedType and ReflectionUnionType
+            $typeName = null;
+            if ($type instanceof \ReflectionNamedType) {
+                $typeName = $type->getName();
+            } elseif ($type instanceof \ReflectionUnionType) {
+                // For union types, check each type
+                foreach ($type->getTypes() as $unionType) {
+                    if ($unionType instanceof \ReflectionNamedType) {
+                        $name = $unionType->getName();
+                        if ($name !== 'null') {
+                            $typeName = $name;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if ($typeName && (str_contains($typeName, 'Carbon') || str_contains($typeName, 'DateTime'))) {
+                if (is_string($value)) {
+                    return "\\Carbon\\Carbon::parse('{$value}')";
+                }
+            }
+        }
+
+        // Use existing formatValue logic for other types
+        return $this->formatValue($value);
     }
 
     /**
