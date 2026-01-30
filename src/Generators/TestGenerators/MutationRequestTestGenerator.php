@@ -145,7 +145,7 @@ class MutationRequestTestGenerator
         $dtoClassName = $this->getRequestBodyDtoClassName($endpoint);
 
         if (! $dtoClassName) {
-            return ['name' => 'Test value'];
+            return [];
         }
 
         // Generate mock data based on DTO constructor parameters
@@ -157,38 +157,10 @@ class MutationRequestTestGenerator
      */
     public function getRequestBodyDtoClassName(Endpoint $endpoint): ?string
     {
-        // Try multiple ways to get the request body DTO type
-        // 1. Check bodyParameters
-        $requestBody = $endpoint->bodyParameters;
-        if ($requestBody && $requestBody->type) {
-            return $requestBody->type;
-        }
-
-        // 2. Check if there's a request body schema
-        if (isset($endpoint->requestBody['schema'])) {
-            $schemaName = $endpoint->requestBody['schema'];
+        if (isset($endpoint->requestBodySchema)) {
+            $schemaName = $endpoint->requestBodySchema;
 
             return $this->namespace.'\\Dto\\'.$schemaName;
-        }
-
-        // 3. For plain JSON APIs, try to infer from collection name + "UpdateDto" suffix
-        if ($endpoint->collection) {
-            $className = str_replace(' ', '', ucwords(str_replace(['-', '_'], ' ', $endpoint->collection)));
-            // Try common naming patterns
-            $possibleNames = [
-                $this->namespace.'\\Dto\\'.$className.'UpdateDto',
-                $this->namespace.'\\Dto\\'.$className.'CreateDto',
-                $this->namespace.'\\Dto\\'.$className.'Dto',
-            ];
-
-            // Check if any of these DTOs exist in generated code
-            foreach ($possibleNames as $dtoName) {
-                $parts = explode('\\', $dtoName);
-                $shortName = end($parts);
-                if (isset($this->generatedCode->dtoClasses[$shortName])) {
-                    return $dtoName;
-                }
-            }
         }
 
         return null;
