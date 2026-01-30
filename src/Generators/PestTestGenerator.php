@@ -9,6 +9,10 @@ use Crescat\SaloonSdkGenerator\Data\Generator\Endpoint;
 use Crescat\SaloonSdkGenerator\Data\Generator\GeneratedCode;
 use Crescat\SaloonSdkGenerator\Data\Generator\Parameter;
 use Crescat\SaloonSdkGenerator\Data\TaggedOutputFile;
+use Crescat\SaloonSdkGenerator\Generators\TestGenerators\CollectionRequestTestGenerator;
+use Crescat\SaloonSdkGenerator\Generators\TestGenerators\DeleteRequestTestGenerator;
+use Crescat\SaloonSdkGenerator\Generators\TestGenerators\MutationRequestTestGenerator;
+use Crescat\SaloonSdkGenerator\Generators\TestGenerators\SingularGetRequestTestGenerator;
 use Crescat\SaloonSdkGenerator\Helpers\NameHelper;
 use Exception;
 use Illuminate\Support\Arr;
@@ -23,6 +27,14 @@ class PestTestGenerator implements PostProcessor
 
     protected GeneratedCode $generatedCode;
 
+    protected CollectionRequestTestGenerator $collectionTestGenerator;
+
+    protected SingularGetRequestTestGenerator $singularGetTestGenerator;
+
+    protected MutationRequestTestGenerator $mutationTestGenerator;
+
+    protected DeleteRequestTestGenerator $deleteTestGenerator;
+
     public function process(
         Config $config,
         ApiSpecification $specification,
@@ -31,6 +43,28 @@ class PestTestGenerator implements PostProcessor
         $this->config = $config;
         $this->specification = $specification;
         $this->generatedCode = $generatedCode;
+
+        // Initialize test generators
+        $this->collectionTestGenerator = new CollectionRequestTestGenerator(
+            $specification,
+            $generatedCode,
+            $config->namespace
+        );
+        $this->singularGetTestGenerator = new SingularGetRequestTestGenerator(
+            $specification,
+            $generatedCode,
+            $config->namespace
+        );
+        $this->mutationTestGenerator = new MutationRequestTestGenerator(
+            $specification,
+            $generatedCode,
+            $config->namespace
+        );
+        $this->deleteTestGenerator = new DeleteRequestTestGenerator(
+            $specification,
+            $generatedCode,
+            $config->namespace
+        );
 
         return $this->generatePestTests();
     }
@@ -83,7 +117,7 @@ class PestTestGenerator implements PostProcessor
     {
         $stub = file_get_contents(__DIR__.'/../Stubs/pest-testcase.stub');
         $stub = str_replace('{{ namespace }}', $this->config->namespace, $stub);
-        $stub = str_replace('{{ name }}', $this->config->connectorName, $stub);
+        $stub = str_replace('{{ serviceProviderName }}', str_replace('Connector', '', $this->config->connectorName), $stub);
 
         return new TaggedOutputFile(
             tag: 'pest',
@@ -229,6 +263,14 @@ class PestTestGenerator implements PostProcessor
                     $dtoTypes[$parameter->type] = true; // Use associative array to ensure uniqueness
                 }
             }
+
+            // For mutation requests, also check for request body DTO
+            if ($this->mutationTestGenerator->isApplicable($endpoint)) {
+                $bodyDtoClass = $this->mutationTestGenerator->getRequestBodyDtoClassName($endpoint);
+                if ($bodyDtoClass && $this->isDtoType($bodyDtoClass)) {
+                    $dtoTypes[$bodyDtoClass] = true;
+                }
+            }
         }
 
         // Generate use statements for each unique DTO
@@ -301,7 +343,39 @@ class PestTestGenerator implements PostProcessor
      */
     protected function getTestFunctionStubPath(Endpoint $endpoint): string
     {
+        // Delegate to specialized test generator if available
+        $generator = $this->getTestGeneratorForEndpoint($endpoint);
+
+        if ($generator) {
+            return $generator->getStubPath();
+        }
+
+        // Fallback to generic stub
         return __DIR__.'/../Stubs/pest-resource-test-func.stub';
+    }
+
+    /**
+     * Get the appropriate test generator for an endpoint
+     */
+    protected function getTestGeneratorForEndpoint(Endpoint $endpoint): CollectionRequestTestGenerator|SingularGetRequestTestGenerator|MutationRequestTestGenerator|DeleteRequestTestGenerator|null
+    {
+        if ($this->collectionTestGenerator->isApplicable($endpoint)) {
+            return $this->collectionTestGenerator;
+        }
+
+        if ($this->singularGetTestGenerator->isApplicable($endpoint)) {
+            return $this->singularGetTestGenerator;
+        }
+
+        if ($this->mutationTestGenerator->isApplicable($endpoint)) {
+            return $this->mutationTestGenerator;
+        }
+
+        if ($this->deleteTestGenerator->isApplicable($endpoint)) {
+            return $this->deleteTestGenerator;
+        }
+
+        return null;
     }
 
     /**
@@ -309,7 +383,14 @@ class PestTestGenerator implements PostProcessor
      */
     protected function getRequestClassName(Endpoint $endpoint): string
     {
-        return NameHelper::resourceClassName($endpoint->name);
+        $className = NameHelper::requestClassName($endpoint->name);
+
+        // Optionally append "Request" suffix if configured
+        if ($this->config->suffixRequestClasses && ! str_ends_with($className, 'Request')) {
+            $className .= 'Request';
+        }
+
+        return $className;
     }
 
     /**
@@ -325,7 +406,7 @@ class PestTestGenerator implements PostProcessor
      */
     protected function getTestPath(string $resourceName): string
     {
-        return "tests/{$resourceName}Test.php";
+        return "tests/Requests/{$resourceName}Test.php";
     }
 
     /**
@@ -337,6 +418,13 @@ class PestTestGenerator implements PostProcessor
         string $resourceName,
         string $requestClassName
     ): string {
+        // Delegate to specialized test generator if available
+        $generator = $this->getTestGeneratorForEndpoint($endpoint);
+
+        if ($generator) {
+            $functionStub = $generator->replaceStubVariables($functionStub, $endpoint);
+        }
+
         return $functionStub;
     }
 

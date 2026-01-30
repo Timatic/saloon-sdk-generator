@@ -1,0 +1,16 @@
+it('{{ testDescription }}', function () {
+    $bodyData = {{ mockBodyData }};
+
+    Saloon::fake([
+        {{ requestClass }}::class => MockResponse::make([], 201),
+    ]);
+
+    $request = new {{ requestClass }}({{ methodArguments }},
+        data: $bodyData
+    );
+    $response = $this->{{ clientName }}->send($request);
+
+    Saloon::assertSent({{ requestClass }}::class);
+
+    expect($response->status())->toBe(201);
+});

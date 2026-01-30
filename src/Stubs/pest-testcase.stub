@@ -1,12 +1,12 @@
 <?php
 
-namespace {{ namespace }};
+namespace {{ namespace }}\Tests;
 
 use Dotenv\Dotenv;
 use Orchestra\Testbench\TestCase as Orchestra;
 use Saloon\Laravel\SaloonServiceProvider;
 use Spatie\LaravelData\LaravelDataServiceProvider;
-use {{ namespace }}\{{ name }}ServiceProvider;
+use {{ namespace }}\Providers\{{ serviceProviderName }}ServiceProvider;
 
 class TestCase extends Orchestra
 {
@@ -15,7 +15,7 @@ class TestCase extends Orchestra
         return [
             SaloonServiceProvider::class,
             LaravelDataServiceProvider::class,
-            {{ name }}ServiceProvider::class,
+            {{ serviceProviderName }}ServiceProvider::class,
         ];
     }
 

@@ -1,0 +1,17 @@
+it('{{ testDescription }}', function () {
+    Saloon::fake([
+        {{ requestClass }}::class => MockResponse::make({{ mockResponseBody }}, 200),
+    ]);
+
+    $request = new {{ requestClass }}({{ methodArguments }});
+    $response = $this->{{ clientName }}->send($request);
+
+    Saloon::assertSent({{ requestClass }}::class);
+
+    expect($response->status())->toBe(200);
+
+    $dto = $response->dto();
+
+    expect($dto)
+{{ dtoAssertions }};
+});
