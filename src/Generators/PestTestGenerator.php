@@ -13,6 +13,7 @@ use Crescat\SaloonSdkGenerator\Generators\TestGenerators\CollectionRequestTestGe
 use Crescat\SaloonSdkGenerator\Generators\TestGenerators\DeleteRequestTestGenerator;
 use Crescat\SaloonSdkGenerator\Generators\TestGenerators\MutationRequestTestGenerator;
 use Crescat\SaloonSdkGenerator\Generators\TestGenerators\SingularGetRequestTestGenerator;
+use Crescat\SaloonSdkGenerator\Helpers\DtoResolver;
 use Crescat\SaloonSdkGenerator\Helpers\NameHelper;
 use Exception;
 use Illuminate\Support\Arr;
@@ -26,6 +27,8 @@ class PestTestGenerator implements PostProcessor
     protected ApiSpecification $specification;
 
     protected GeneratedCode $generatedCode;
+
+    protected DtoResolver $dtoResolver;
 
     protected CollectionRequestTestGenerator $collectionTestGenerator;
 
@@ -44,26 +47,34 @@ class PestTestGenerator implements PostProcessor
         $this->specification = $specification;
         $this->generatedCode = $generatedCode;
 
-        // Initialize test generators
+        // Initialize DtoResolver with GeneratedCode
+        $this->dtoResolver = new DtoResolver($config);
+        $this->dtoResolver->setGeneratedCode($generatedCode);
+
+        // Initialize test generators with DtoResolver
         $this->collectionTestGenerator = new CollectionRequestTestGenerator(
             $specification,
             $generatedCode,
-            $config->namespace
+            $config->namespace,
+            $this->dtoResolver
         );
         $this->singularGetTestGenerator = new SingularGetRequestTestGenerator(
             $specification,
             $generatedCode,
-            $config->namespace
+            $config->namespace,
+            $this->dtoResolver
         );
         $this->mutationTestGenerator = new MutationRequestTestGenerator(
             $specification,
             $generatedCode,
-            $config->namespace
+            $config->namespace,
+            $this->dtoResolver
         );
         $this->deleteTestGenerator = new DeleteRequestTestGenerator(
             $specification,
             $generatedCode,
-            $config->namespace
+            $config->namespace,
+            $this->dtoResolver
         );
 
         return $this->generatePestTests();

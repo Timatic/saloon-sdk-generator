@@ -8,6 +8,7 @@ use Crescat\SaloonSdkGenerator\Data\Generator\ApiSpecification;
 use Crescat\SaloonSdkGenerator\Data\Generator\Endpoint;
 use Crescat\SaloonSdkGenerator\Data\Generator\GeneratedCode;
 use Crescat\SaloonSdkGenerator\Generators\Traits\DtoAssertions;
+use Crescat\SaloonSdkGenerator\Helpers\DtoResolver;
 
 class CollectionRequestTestGenerator
 {
@@ -19,11 +20,18 @@ class CollectionRequestTestGenerator
 
     protected string $namespace;
 
-    public function __construct(ApiSpecification $specification, GeneratedCode $generatedCode, string $namespace)
-    {
+    protected DtoResolver $dtoResolver;
+
+    public function __construct(
+        ApiSpecification $specification,
+        GeneratedCode $generatedCode,
+        string $namespace,
+        DtoResolver $dtoResolver
+    ) {
         $this->specification = $specification;
         $this->generatedCode = $generatedCode;
         $this->namespace = $namespace;
+        $this->dtoResolver = $dtoResolver;
     }
 
     /**
@@ -87,45 +95,34 @@ class CollectionRequestTestGenerator
      */
     protected function getDtoClassName(Endpoint $endpoint): string
     {
-        // Try multiple ways to get the response DTO type
-        // 1. Check if the response has a body with a type
-        $responseBody = $endpoint->responses[200]->body ?? null;
-        if ($responseBody && $responseBody->type) {
-            // If it's an array type, extract the item type
-            $type = $responseBody->type;
-            if (str_contains($type, '[]')) {
-                return str_replace('[]', '', $type);
-            }
+        // Use DtoResolver to get the response DTO
+        $dtoFqn = $this->dtoResolver->resolveResponseDto($endpoint);
 
-            return $type;
-        }
-
-        // 2. Check if there's a response schema reference
-        if (isset($endpoint->response['schema'])) {
-            $schemaName = $endpoint->response['schema'];
+        if ($dtoFqn) {
             // If it's a collection wrapper, try to extract the item type
-            if (str_contains($schemaName, 'Collection') || str_contains($schemaName, 'Pagination')) {
+            $className = $this->dtoResolver->extractClassName($dtoFqn);
+            if (str_contains($className, 'Collection') || str_contains($className, 'Pagination')) {
                 // Try to get the base name
-                $baseName = str_replace(['Collection', 'Pagination', 'DtoOf'], '', $schemaName);
+                $baseName = str_replace(['Collection', 'Pagination', 'DtoOf'], '', $className);
                 if ($baseName) {
-                    return $this->namespace.'\\Dto\\'.$baseName;
+                    return $this->dtoResolver->buildDtoFqn($baseName);
                 }
             }
 
-            return $this->namespace.'\\Dto\\'.$schemaName;
+            return $dtoFqn;
         }
 
-        // 3. For plain JSON APIs, use collection name
+        // Fallback: use collection name
         if ($endpoint->collection) {
-            $className = str_replace(' ', '', ucwords(str_replace(['-', '_'], ' ', $endpoint->collection)));
+            $schemaName = str_replace(' ', '', ucwords(str_replace(['-', '_'], ' ', $endpoint->collection)));
 
-            return $this->namespace.'\\Dto\\'.$className.'Dto';
+            return $this->dtoResolver->buildDtoFqn($schemaName);
         }
 
-        // 4. Fallback: construct from endpoint name
-        $className = str_replace(' ', '', ucwords(str_replace(['-', '_'], ' ', $endpoint->name)));
+        // Final fallback: construct from endpoint name
+        $schemaName = str_replace(' ', '', ucwords(str_replace(['-', '_'], ' ', $endpoint->name)));
 
-        return $this->namespace.'\\Dto\\'.$className.'Dto';
+        return $this->dtoResolver->buildDtoFqn($schemaName);
     }
 
     /**

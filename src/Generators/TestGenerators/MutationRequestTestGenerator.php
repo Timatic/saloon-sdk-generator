@@ -8,6 +8,7 @@ use Crescat\SaloonSdkGenerator\Data\Generator\ApiSpecification;
 use Crescat\SaloonSdkGenerator\Data\Generator\Endpoint;
 use Crescat\SaloonSdkGenerator\Data\Generator\GeneratedCode;
 use Crescat\SaloonSdkGenerator\Generators\Traits\DtoAssertions;
+use Crescat\SaloonSdkGenerator\Helpers\DtoResolver;
 
 class MutationRequestTestGenerator
 {
@@ -19,11 +20,18 @@ class MutationRequestTestGenerator
 
     protected string $namespace;
 
-    public function __construct(ApiSpecification $specification, GeneratedCode $generatedCode, string $namespace)
-    {
+    protected DtoResolver $dtoResolver;
+
+    public function __construct(
+        ApiSpecification $specification,
+        GeneratedCode $generatedCode,
+        string $namespace,
+        DtoResolver $dtoResolver
+    ) {
         $this->specification = $specification;
         $this->generatedCode = $generatedCode;
         $this->namespace = $namespace;
+        $this->dtoResolver = $dtoResolver;
     }
 
     /**
@@ -206,17 +214,12 @@ class MutationRequestTestGenerator
     }
 
     /**
-     * Get the DTO class name from request body
+     * Get the DTO class name from request body.
+     * Returns FQN without leading backslash for use in test imports.
      */
     public function getRequestBodyDtoClassName(Endpoint $endpoint): ?string
     {
-        if (isset($endpoint->requestBodySchema)) {
-            $schemaName = $endpoint->requestBodySchema;
-
-            return $this->namespace.'\\Dto\\'.$schemaName;
-        }
-
-        return null;
+        return $this->dtoResolver->resolveRequestBodyDtoFqn($endpoint);
     }
 
     /**

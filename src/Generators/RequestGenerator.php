@@ -345,27 +345,11 @@ class RequestGenerator extends Generator
 
     /**
      * Get the DTO class name from endpoint.
-     * This is a simplified version - override for custom logic.
+     * Returns just the class name (e.g., "UserDto") without namespace.
      */
     protected function getDtoClassName(Endpoint $endpoint): ?string
     {
-        if (! isset($endpoint->response['schema'])) {
-            return null;
-        }
-
-        $schema = $endpoint->response['schema'];
-        if (is_string($schema)) {
-            return $schema;
-        }
-
-        // Try to extract from response schema if available
-        if (is_array($schema) && array_key_exists('$ref', $schema)) {
-            $ref = $endpoint->response['schema']['$ref'];
-
-            return basename(str_replace('#/components/schemas/', '', $ref));
-        }
-
-        return null;
+        return $this->dtoResolver->resolveResponseDtoClassName($endpoint);
     }
 
     /**
@@ -374,24 +358,7 @@ class RequestGenerator extends Generator
      */
     protected function getRequestBodyDtoType(Endpoint $endpoint): ?string
     {
-        if (! isset($endpoint->requestBodySchema)) {
-            return null;
-        }
-
-        $schema = $endpoint->requestBodySchema;
-        if (is_string($schema)) {
-            return "\\{$this->config->namespace}\\Dto\\{$schema}";
-        }
-
-        // Try to extract from response schema if available
-        if (is_array($schema) && array_key_exists('$ref', $schema)) {
-            $ref = $endpoint->requestBodySchema['$ref'];
-            $dtoName = basename(str_replace('#/components/schemas/', '', $ref));
-
-            return "\\{$this->config->namespace}\\Dto\\{$dtoName}";
-        }
-
-        return null;
+        return $this->dtoResolver->resolveRequestBodyDto($endpoint);
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace Crescat\SaloonSdkGenerator\Generators\Traits;
 
 use Crescat\SaloonSdkGenerator\Data\Generator\GeneratedCode;
+use Crescat\SaloonSdkGenerator\Helpers\DtoResolver;
 use Nette\PhpGenerator\Parameter;
 use Nette\PhpGenerator\PromotedParameter;
 use Nette\PhpGenerator\Property;
@@ -27,6 +28,11 @@ trait DtoAssertions
     protected string $namespace;
 
     /**
+     * The DtoResolver instance (must be provided by the class using this trait)
+     */
+    protected DtoResolver $dtoResolver;
+
+    /**
      * Generate DTO assertions based on mock data
      *
      * Override this method in child classes to customize assertion generation
@@ -38,7 +44,8 @@ trait DtoAssertions
         $attributes = $mockData;
 
         if (empty($attributes)) {
-            return '        // No attributes to validate';
+            // Return a valid assertion when there are no attributes
+            return '        ->toBeInstanceOf(\Spatie\LaravelData\Data::class)';
         }
 
         $assertions = [];
@@ -106,61 +113,11 @@ trait DtoAssertions
      */
     protected function getDtoPropertiesFromGeneratedCode(string $dtoClassName): array
     {
-        // Strip namespace from fully qualified class name to get just the class name
-        $parts = explode('\\', $dtoClassName);
-        $classNameOnly = end($parts);
-
-        // Check if DTO exists in generated code (case-sensitive first)
-        if (! isset($this->generatedCode->dtoClasses[$classNameOnly])) {
-            // Try case-insensitive lookup as fallback
-            $classNameLower = strtolower($classNameOnly);
-            foreach ($this->generatedCode->dtoClasses as $key => $value) {
-                if (strtolower($key) === $classNameLower) {
-                    $classNameOnly = $key;
-                    break;
-                }
-            }
-
-            // If still not found, return empty
-            if (! isset($this->generatedCode->dtoClasses[$classNameOnly])) {
-                return [];
-            }
-        }
-
-        $phpFile = $this->generatedCode->dtoClasses[$classNameOnly];
-        $parameters = [];
-
-        // Get the first namespace in the file
-        $namespace = array_values($phpFile->getNamespaces())[0] ?? null;
-        if (! $namespace) {
-            return [];
-        }
-
-        // Get the first class in the namespace
-        $classType = array_values($namespace->getClasses())[0] ?? null;
-        if (! $classType) {
-            return [];
-        }
-
-        // Get the constructor
-        $constructor = $classType->getMethod('__construct');
-        if (! $constructor) {
-            return [];
-        }
-
-        // Extract parameters from the constructor
-        foreach ($constructor->getParameters() as $parameter) {
-
-            // Skip parameters with specific attributes that indicate they shouldn't be in tests
-            // Child classes can override this logic
-            if ($this->shouldSkipParameter($parameter)) {
-                continue;
-            }
-
-            $parameters[$parameter->getName()] = $parameter;
-        }
-
-        return $parameters;
+        // Use DtoResolver to get DTO properties with filtering
+        return $this->dtoResolver->getDtoProperties(
+            $dtoClassName,
+            fn ($parameter) => $this->shouldSkipParameter($parameter)
+        );
     }
 
     /**

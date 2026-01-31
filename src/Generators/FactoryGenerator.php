@@ -7,6 +7,7 @@ use Crescat\SaloonSdkGenerator\Data\Generator\ApiSpecification;
 use Crescat\SaloonSdkGenerator\Data\Generator\Config;
 use Crescat\SaloonSdkGenerator\Data\Generator\GeneratedCode;
 use Crescat\SaloonSdkGenerator\Data\TaggedOutputFile;
+use Crescat\SaloonSdkGenerator\Helpers\DtoResolver;
 use Crescat\SaloonSdkGenerator\Support\Factory;
 use Illuminate\Support\Str;
 use Nette\PhpGenerator\ClassType;
@@ -22,10 +23,14 @@ class FactoryGenerator implements PostProcessor
 
     protected ApiSpecification $specification;
 
+    protected DtoResolver $dtoResolver;
+
     public function process(Config $config, ApiSpecification $specification, GeneratedCode $generatedCode): PhpFile|array|null
     {
         $this->config = $config;
         $this->specification = $specification;
+        $this->dtoResolver = new DtoResolver($config);
+        $this->dtoResolver->setGeneratedCode($generatedCode);
 
         foreach ($generatedCode->dtoClasses as $dtoClassName => $dtoClass) {
             $this->generateFactoryClass($dtoClassName, $dtoClass);
