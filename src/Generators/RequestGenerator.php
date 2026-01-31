@@ -421,11 +421,6 @@ class RequestGenerator extends Generator
         $namespace->addUse(Response::class);
         $namespace->addUse($dtoFqcn);
 
-        // Add $model property for reference
-        $classType->addProperty('model')
-            ->setProtected()
-            ->setValue(new Literal("{$dtoClassName}::class"));
-
         // Add createDtoFromResponse method
         $method = $classType->addMethod('createDtoFromResponse')
             ->setReturnType('mixed');
