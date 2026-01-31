@@ -22,12 +22,17 @@ trait DtoAssertions
     protected GeneratedCode $generatedCode;
 
     /**
+     * The namespace for the generated SDK (must be provided by the class using this trait)
+     */
+    protected string $namespace;
+
+    /**
      * Generate DTO assertions based on mock data
      *
      * Override this method in child classes to customize assertion generation
      * based on your API's response format (e.g., JSON:API, plain JSON, etc.)
      */
-    protected function generateDtoAssertions(array $mockData): string
+    protected function generateDtoAssertions(array $mockData, string $prefix = ''): string
     {
         // Default implementation - expects simple key-value structure
         $attributes = $mockData;
@@ -39,17 +44,56 @@ trait DtoAssertions
         $assertions = [];
 
         foreach ($attributes as $key => $value) {
-            // Skip arrays and objects
-            if (is_array($value) || is_object($value)) {
+            // Handle nested objects recursively
+            if (is_array($value) && ! empty($value)) {
+                // Generate assertions for nested object
+                $nestedPrefix = $prefix ? "{$prefix}->{$key}" : $key;
+                $nestedAssertions = $this->generateNestedAssertions($value, $nestedPrefix);
+                if ($nestedAssertions) {
+                    $assertions[] = $nestedAssertions;
+                }
+
                 continue;
             }
 
-            $assertion = $this->generateAssertionForValue($key, $value);
+            // Skip null/empty arrays
+            if (is_null($value) || (is_array($value) && empty($value))) {
+                continue;
+            }
+
+            $propertyPath = $prefix ? "{$prefix}->{$key}" : $key;
+            $assertion = $this->generateAssertionForValue($propertyPath, $value);
             $assertions[] = $assertion;
         }
 
         if (empty($assertions)) {
-            return '        // No simple attributes to validate (arrays/objects skipped)';
+            return '        // No attributes to validate';
+        }
+
+        return implode("\n", $assertions);
+    }
+
+    /**
+     * Generate assertions for nested object properties
+     */
+    protected function generateNestedAssertions(array $nestedData, string $prefix): string
+    {
+        $assertions = [];
+
+        foreach ($nestedData as $key => $value) {
+            if (is_array($value) && ! empty($value)) {
+                // Recursively handle deeper nesting
+                $assertions[] = $this->generateNestedAssertions($value, "{$prefix}->{$key}");
+
+                continue;
+            }
+
+            if (is_null($value) || (is_array($value) && empty($value))) {
+                continue;
+            }
+
+            $propertyPath = "{$prefix}->{$key}";
+            $assertions[] = $this->generateAssertionForValue($propertyPath, $value);
         }
 
         return implode("\n", $assertions);
@@ -66,9 +110,21 @@ trait DtoAssertions
         $parts = explode('\\', $dtoClassName);
         $classNameOnly = end($parts);
 
-        // Check if DTO exists in generated code
+        // Check if DTO exists in generated code (case-sensitive first)
         if (! isset($this->generatedCode->dtoClasses[$classNameOnly])) {
-            return [];
+            // Try case-insensitive lookup as fallback
+            $classNameLower = strtolower($classNameOnly);
+            foreach ($this->generatedCode->dtoClasses as $key => $value) {
+                if (strtolower($key) === $classNameLower) {
+                    $classNameOnly = $key;
+                    break;
+                }
+            }
+
+            // If still not found, return empty
+            if (! isset($this->generatedCode->dtoClasses[$classNameOnly])) {
+                return [];
+            }
         }
 
         $phpFile = $this->generatedCode->dtoClasses[$classNameOnly];
@@ -138,7 +194,8 @@ trait DtoAssertions
         $parameters = $this->getDtoPropertiesFromGeneratedCode($dtoClassName);
 
         if (empty($parameters)) {
-            return ['name' => 'Mock value'];
+            // Don't fallback to fake data - return empty array to expose the real issue
+            return [];
         }
 
         $attributes = [];
@@ -154,6 +211,25 @@ trait DtoAssertions
         }
 
         return $attributes;
+    }
+
+    /**
+     * Check if a type string represents a DTO class
+     */
+    protected function isDtoClass(?string $typeName): bool
+    {
+        if (! $typeName || ! str_contains($typeName, '\\')) {
+            return false;
+        }
+
+        // Check if it's in our DTO namespace
+        if (! isset($this->namespace)) {
+            return false;
+        }
+
+        $dtoNamespacePart = '\\Dto\\';
+
+        return str_contains($typeName, $dtoNamespacePart);
     }
 
     /**
@@ -179,6 +255,12 @@ trait DtoAssertions
                 // If all types are null/mixed, default to string
                 $typeName = 'string';
             }
+        }
+
+        // Handle nested DTO types recursively
+        if ($this->isDtoClass($typeName)) {
+            // Recursively generate mock data for nested DTO
+            return $this->generateMockAttributesFromDto($typeName);
         }
 
         // DateTime fields
@@ -237,44 +319,44 @@ trait DtoAssertions
     /**
      * Generate an assertion for a specific attribute value
      */
-    protected function generateAssertionForValue(string $key, mixed $value): string
+    protected function generateAssertionForValue(string $propertyPath, mixed $value): string
     {
         // Handle different value types
         if (is_bool($value)) {
             $expected = $value ? 'true' : 'false';
 
-            return "        ->{$key}->toBe({$expected})";
+            return "        ->{$propertyPath}->toBe({$expected})";
         }
 
         if (is_int($value)) {
-            return "        ->{$key}->toBe({$value})";
+            return "        ->{$propertyPath}->toBe({$value})";
         }
 
         if (is_float($value)) {
-            return "        ->{$key}->toBe({$value})";
+            return "        ->{$propertyPath}->toBe({$value})";
         }
 
         if (is_null($value)) {
-            return "        ->{$key}->toBeNull()";
+            return "        ->{$propertyPath}->toBeNull()";
         }
 
         if (is_object($value)) {
-            return "        ->{$key}->toBeInstanceOf(stdClass::class)";
+            return "        ->{$propertyPath}->toBeInstanceOf(stdClass::class)";
         }
 
         if (is_array($value)) {
-            return "        ->{$key}->toBeArray()";
+            return "        ->{$propertyPath}->toBeArray()";
         }
 
         // Check if it's a datetime string
         if (is_string($value) && $this->isDateTimeString($value)) {
-            return "        ->{$key}->toEqual(new \\Carbon\\Carbon(\"{$value}\"))";
+            return "        ->{$propertyPath}->toEqual(new \\Carbon\\Carbon(\"{$value}\"))";
         }
 
         // Default: string value
         $escapedValue = addslashes($value);
 
-        return "        ->{$key}->toBe(\"{$escapedValue}\")";
+        return "        ->{$propertyPath}->toBe(\"{$escapedValue}\")";
     }
 
     /**
