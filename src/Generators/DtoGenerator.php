@@ -88,7 +88,6 @@ class DtoGenerator extends Generator
         $classConstructor = $classType->addMethod('__construct');
 
         $generatedMappings = false;
-        $referencedDtos = [];
 
         foreach ($properties as $propertyName => $propertySpec) {
             if (in_array($propertyName, $this->getPropertiesToSkip(), true)) {
@@ -99,9 +98,9 @@ class DtoGenerator extends Generator
 
             // Check if this is a reference to another schema
             if ($propertySpec instanceof Reference) {
+                // Keep the FQN - Nette will handle same-namespace resolution
                 $dtoClassName = NameHelper::dtoClassName($type);
                 $type = $this->buildDtoFqn($dtoClassName);
-                $referencedDtos[] = $dtoClassName;
             }
 
             $sub = NameHelper::dtoClassName($type);
@@ -224,6 +223,7 @@ class DtoGenerator extends Generator
             if ($typeSchema instanceof Reference) {
                 $schemaName = Str::afterLast($typeSchema->getReference(), '/');
                 $dtoClassName = NameHelper::dtoClassName($schemaName);
+                // Use FQN - Nette will handle same-namespace resolution
                 $phpTypes[] = $this->buildDtoFqn($dtoClassName);
             } elseif ($typeSchema instanceof Schema) {
                 $phpTypes[] = $this->extractTypeFromSchema($typeSchema);
