@@ -48,29 +48,28 @@ class PestTestGenerator implements PostProcessor
         $this->generatedCode = $generatedCode;
 
         // Initialize DtoResolver with GeneratedCode
-        $this->dtoResolver = new DtoResolver($config);
-        $this->dtoResolver->setGeneratedCode($generatedCode);
+        $this->dtoResolver = $this->createDtoResolver($config, $generatedCode);
 
         // Initialize test generators with DtoResolver
-        $this->collectionTestGenerator = new CollectionRequestTestGenerator(
+        $this->collectionTestGenerator = $this->createCollectionTestGenerator(
             $specification,
             $generatedCode,
             $config->namespace,
             $this->dtoResolver
         );
-        $this->singularGetTestGenerator = new SingularGetRequestTestGenerator(
+        $this->singularGetTestGenerator = $this->createSingularGetTestGenerator(
             $specification,
             $generatedCode,
             $config->namespace,
             $this->dtoResolver
         );
-        $this->mutationTestGenerator = new MutationRequestTestGenerator(
+        $this->mutationTestGenerator = $this->createMutationTestGenerator(
             $specification,
             $generatedCode,
             $config->namespace,
             $this->dtoResolver
         );
-        $this->deleteTestGenerator = new DeleteRequestTestGenerator(
+        $this->deleteTestGenerator = $this->createDeleteTestGenerator(
             $specification,
             $generatedCode,
             $config->namespace,
@@ -78,6 +77,70 @@ class PestTestGenerator implements PostProcessor
         );
 
         return $this->generatePestTests();
+    }
+
+    /**
+     * Factory method to create DtoResolver instance.
+     * Override this to provide custom DtoResolver implementations.
+     */
+    protected function createDtoResolver(Config $config, GeneratedCode $generatedCode): DtoResolver
+    {
+        $resolver = new DtoResolver($config);
+        $resolver->setGeneratedCode($generatedCode);
+
+        return $resolver;
+    }
+
+    /**
+     * Factory method to create CollectionRequestTestGenerator instance.
+     * Override this to provide custom test generator implementations.
+     */
+    protected function createCollectionTestGenerator(
+        ApiSpecification $specification,
+        GeneratedCode $generatedCode,
+        string $namespace,
+        DtoResolver $dtoResolver
+    ): CollectionRequestTestGenerator {
+        return new CollectionRequestTestGenerator($specification, $generatedCode, $namespace, $dtoResolver);
+    }
+
+    /**
+     * Factory method to create SingularGetRequestTestGenerator instance.
+     * Override this to provide custom test generator implementations.
+     */
+    protected function createSingularGetTestGenerator(
+        ApiSpecification $specification,
+        GeneratedCode $generatedCode,
+        string $namespace,
+        DtoResolver $dtoResolver
+    ): SingularGetRequestTestGenerator {
+        return new SingularGetRequestTestGenerator($specification, $generatedCode, $namespace, $dtoResolver);
+    }
+
+    /**
+     * Factory method to create MutationRequestTestGenerator instance.
+     * Override this to provide custom test generator implementations.
+     */
+    protected function createMutationTestGenerator(
+        ApiSpecification $specification,
+        GeneratedCode $generatedCode,
+        string $namespace,
+        DtoResolver $dtoResolver
+    ): MutationRequestTestGenerator {
+        return new MutationRequestTestGenerator($specification, $generatedCode, $namespace, $dtoResolver);
+    }
+
+    /**
+     * Factory method to create DeleteRequestTestGenerator instance.
+     * Override this to provide custom test generator implementations.
+     */
+    protected function createDeleteTestGenerator(
+        ApiSpecification $specification,
+        GeneratedCode $generatedCode,
+        string $namespace,
+        DtoResolver $dtoResolver
+    ): DeleteRequestTestGenerator {
+        return new DeleteRequestTestGenerator($specification, $generatedCode, $namespace, $dtoResolver);
     }
 
     /**
