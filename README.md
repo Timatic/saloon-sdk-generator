@@ -21,7 +21,139 @@ eliminating the need to create boilerplate code from scratch.
 
 Your journey to crafting a tailored SDK starts here – with the Saloon SDK Generator. 🌟
 
+## Fork Enhancements
+
+This is an enhanced fork of the original [Crescat Saloon SDK Generator](https://github.com/crescat-io/saloon-sdk-generator) with significant additional features focused on production-ready SDK generation, comprehensive testing, and advanced customization capabilities.
+
+### Comprehensive Test Generation
+
+The fork automatically generates **Pest PHP tests** for all your API endpoints, providing a complete test suite out of the box:
+
+- **Automatic test generation** for all request types (GET, POST, PUT, DELETE)
+- **Specialized test patterns** for different endpoint types:
+  - Collection endpoints (lists/searches)
+  - Singular resource endpoints (get by ID)
+  - Mutation endpoints (create/update)
+  - Delete endpoints
+- **Factory generation** for Spatie Laravel Data objects to create realistic test data
+- **DTO assertions** with support for nested objects and complex structures
+- **Mock response fixtures** for repeatable, isolated tests
+
+**Example generated test:**
+
+```php
+test('can create user', function () {
+    $connector = new MySDKConnector();
+
+    $mockClient = new MockClient([
+        CreateUserRequest::class => MockResponse::make([
+            'id' => 123,
+            'name' => 'John Doe',
+            'email' => 'john@example.com'
+        ], 201),
+    ]);
+
+    $connector->withMockClient($mockClient);
+
+    $request = new CreateUserRequest(
+        name: 'John Doe',
+        email: 'john@example.com'
+    );
+
+    $response = $connector->send($request);
+    $dto = $response->dto();
+
+    expect($dto)->toBeInstanceOf(UserDto::class)
+        ->and($dto->id)->toBe(123)
+        ->and($dto->name)->toBe('John Doe')
+        ->and($dto->email)->toBe('john@example.com');
+});
+```
+
+### Enhanced DTO Support
+
+Rich Data Transfer Object generation with modern PHP features:
+
+- **Spatie Laravel Data integration** - Generated DTOs extend `Spatie\LaravelData\Data` for automatic validation, transformation, and serialization
+- **Nested DTO support** - Automatically handles complex object hierarchies with recursive generation
+- **Response hydration methods** - Each request includes a `createDtoFromResponse()` method for easy response parsing
+- **Union type support** - Handles OpenAPI `anyOf`, `oneOf`, and `allOf` schemas
+- **DateTime detection** - Automatically generates `Carbon` types for OpenAPI `date-time` format fields
+
+**Example generated DTO:**
+
+```php
+class UserDto extends Data
+{
+    public function __construct(
+        public int $id,
+        public string $name,
+        public ?Carbon $created_at,
+        public AddressDto $address,
+    ) {}
+}
+```
+
+**Response hydration:**
+
+```php
+public function createDtoFromResponse(Response $response): UserDto
+{
+    return UserDto::from($response->json());
+}
+```
+
+### Extensive Customization Hooks
+
+The fork provides a powerful hook system allowing you to customize every aspect of code generation:
+
+- Request Generator Hooks
+- Resource Generator Hooks
+- DTO Generator Hooks
+- Test Generator Hooks
+
+**Example: Customizing request class names**
+
+```php
+class MyRequestGenerator extends RequestGenerator
+{
+    protected function getRequestClassName(Endpoint $endpoint): string
+    {
+        // Remove version prefixes from endpoint names
+        $name = preg_replace('/^v\d+/', '', $endpoint->name);
+        return $name . 'Request';
+    }
+}
+
+$generator = new CodeGenerator(
+    config: $config,
+    requestGenerator: new MyRequestGenerator($config)
+);
+```
+
+### Configuration Enhancements
+
+Additional configuration options for fine-tuned control:
+
+- **`requestClassSuffix`** - Customize the suffix for request classes (default: 'Request')
+- **OpenAPI as default** - No need to specify `--type=openapi` when generating from OpenAPI specs
+- **Test path customization** - Configure where test files are generated
+- **Factory namespace configuration** - Control factory class namespaces
+
+### Summary
+
+These enhancements make the SDK Generator suitable for production use with:
+- Complete test coverage out of the box
+- Type-safe DTOs with validation and transformation
+- Full customization through hooks
+- Modern PHP 8.2+ features
+- Spatie Laravel Data integration
+
+All features are backward-compatible with the original package and can be adopted incrementally.
+
 ## Installation
+
+> **Note:** This is an enhanced fork with additional features. See the [Fork Enhancements](#fork-enhancements) section above for details on what's been added beyond the original package.
 
 You can install this package using Composer:
 
