@@ -25,12 +25,13 @@ class FactoryGenerator implements PostProcessor
 
     protected DtoResolver $dtoResolver;
 
+    protected string $factoryClass = Factory::class;
+
     public function process(Config $config, ApiSpecification $specification, GeneratedCode $generatedCode): PhpFile|array|null
     {
         $this->config = $config;
         $this->specification = $specification;
-        $this->dtoResolver = new DtoResolver($config);
-        $this->dtoResolver->setGeneratedCode($generatedCode);
+        $this->dtoResolver = $this->createDtoResolver($config, $generatedCode);
 
         foreach ($generatedCode->dtoClasses as $dtoClassName => $dtoClass) {
             $this->generateFactoryClass($dtoClassName, $dtoClass);
@@ -47,9 +48,9 @@ class FactoryGenerator implements PostProcessor
         $classFile = new PhpFile;
         $namespace = $classFile->addNamespace("{$this->config->namespace}\\{$this->config->factoryNamespaceSuffix}");
 
-        $classType->setExtends(Factory::class);
+        $classType->setExtends($this->factoryClass);
 
-        $namespace->addUse(Factory::class);
+        $namespace->addUse($this->factoryClass);
         $dtoFullClass = "{$this->config->namespace}\\{$this->config->dtoNamespaceSuffix}\\{$dtoClassName}";
         $namespace->addUse($dtoFullClass);
 
@@ -63,6 +64,11 @@ class FactoryGenerator implements PostProcessor
         $definitionMethod->setBody($definitionBody);
 
         $namespace->add($classType);
+
+        $classType->addMethod('modelClass')
+            ->setBody("return $dtoClassName::class;")
+            ->setReturnType('string')
+            ->setVisibility('protected');
 
         $this->generated[$factoryName] = new TaggedOutputFile(
             tag: 'factories',
@@ -343,5 +349,13 @@ class FactoryGenerator implements PostProcessor
         }
 
         return null;
+    }
+
+    private function createDtoResolver(Config $config, GeneratedCode $generatedCode)
+    {
+        $resolver = new DtoResolver($config);
+        $resolver->setGeneratedCode($generatedCode);
+
+        return $resolver;
     }
 }
