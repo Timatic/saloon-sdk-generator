@@ -104,13 +104,16 @@ class MutationRequestTestGenerator
     /**
      * Generate DTO instantiation code with named parameters
      */
-    protected function generateDtoInstantiation(string $dtoClassName, array $mockData): string
+    protected function generateDtoInstantiation(string $dtoClassName, array $mockData, bool $useFqn = false): string
     {
         $parts = explode('\\', $dtoClassName);
         $shortClassName = end($parts);
 
+        // Use FQN for nested DTOs, short name for top-level DTOs
+        $className = $useFqn ? "\\{$dtoClassName}" : $shortClassName;
+
         if (empty($mockData)) {
-            return "new {$shortClassName}()";
+            return "new {$className}()";
         }
 
         // Reflect on the DTO to get parameter types
@@ -137,7 +140,7 @@ class MutationRequestTestGenerator
 
         $paramString = implode(",\n        ", $parameters);
 
-        return "new {$shortClassName}(\n        {$paramString}\n    )";
+        return "new {$className}(\n        {$paramString}\n    )";
     }
 
     /**
@@ -170,6 +173,12 @@ class MutationRequestTestGenerator
                 if (is_string($value)) {
                     return "\\Carbon\\Carbon::parse('{$value}')";
                 }
+            }
+
+            // Check if parameter is a DTO class
+            if ($typeName && $this->isDtoClass($typeName) && is_array($value)) {
+                // Recursively generate DTO instantiation for nested DTO
+                return $this->generateDtoInstantiation($typeName, $value, useFqn: true);
             }
         }
 
