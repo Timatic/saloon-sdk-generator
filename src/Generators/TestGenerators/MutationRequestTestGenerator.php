@@ -48,7 +48,7 @@ class MutationRequestTestGenerator
     /**
      * Get the stub path for mutation request tests
      */
-    public function getStubPath(): string
+    public function getStubPath(Endpoint $endpoint): string
     {
         return __DIR__.'/../../Stubs/TestGenerators/mutation-request-test-func.stub';
     }

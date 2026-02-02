@@ -42,7 +42,7 @@ class DeleteRequestTestGenerator
     /**
      * Get the stub path for DELETE request tests
      */
-    public function getStubPath(): string
+    public function getStubPath(Endpoint $endpoint): string
     {
         return __DIR__.'/../../Stubs/TestGenerators/delete-request-test-func.stub';
     }

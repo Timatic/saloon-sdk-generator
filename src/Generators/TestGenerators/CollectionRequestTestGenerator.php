@@ -46,9 +46,17 @@ class CollectionRequestTestGenerator
     /**
      * Get the stub path for collection request tests
      */
-    public function getStubPath(): string
+    public function getStubPath(Endpoint $endpoint): string
     {
-        return __DIR__.'/../../Stubs/TestGenerators/collection-request-test-func.stub';
+        // Check if DTO exists for this endpoint
+        $dtoClassName = $this->getDtoClassName($endpoint);
+        $hasDtoResponse = $dtoClassName && $this->dtoResolver->dtoExists($dtoClassName);
+
+        if ($hasDtoResponse) {
+            return __DIR__.'/../../Stubs/TestGenerators/collection-request-test-func.stub';
+        }
+
+        return __DIR__.'/../../Stubs/TestGenerators/collection-request-no-dto-test-func.stub';
     }
 
     /**
@@ -56,6 +64,12 @@ class CollectionRequestTestGenerator
      */
     public function replaceStubVariables(string $functionStub, Endpoint $endpoint): string
     {
+        // Early return if no DTO exists (no-dto stub doesn't need replacements)
+        $dtoClassName = $this->getDtoClassName($endpoint);
+        if (! $dtoClassName || ! $this->dtoResolver->dtoExists($dtoClassName)) {
+            return $functionStub;
+        }
+
         // Generate mock response body (array with 2 items)
         $mockData = $this->generateMockData($endpoint);
         $mockResponseBody = $this->formatArrayAsPhp($mockData);
@@ -83,6 +97,10 @@ class CollectionRequestTestGenerator
         // Get DTO class name from endpoint response
         $dtoClassName = $this->getDtoClassName($endpoint);
 
+        if (! $dtoClassName) {
+            return [];
+        }
+
         // Generate mock data for a single item
         $singleItem = $this->generateMockAttributesFromDto($dtoClassName);
 
@@ -92,8 +110,9 @@ class CollectionRequestTestGenerator
 
     /**
      * Get the DTO class name from endpoint response
+     * Returns null if no DTO can be resolved
      */
-    protected function getDtoClassName(Endpoint $endpoint): string
+    protected function getDtoClassName(Endpoint $endpoint): ?string
     {
         // Use DtoResolver to get the response DTO
         $dtoFqn = $this->dtoResolver->resolveResponseDto($endpoint);
@@ -105,24 +124,18 @@ class CollectionRequestTestGenerator
                 // Try to get the base name
                 $baseName = str_replace(['Collection', 'Pagination', 'DtoOf'], '', $className);
                 if ($baseName) {
-                    return $this->dtoResolver->buildDtoFqn($baseName);
+                    $itemDtoFqn = $this->dtoResolver->buildDtoFqn($baseName);
+                    if ($this->dtoResolver->dtoExists($itemDtoFqn)) {
+                        return $itemDtoFqn;
+                    }
                 }
             }
 
             return $dtoFqn;
         }
 
-        // Fallback: use collection name
-        if ($endpoint->collection) {
-            $schemaName = str_replace(' ', '', ucwords(str_replace(['-', '_'], ' ', $endpoint->collection)));
-
-            return $this->dtoResolver->buildDtoFqn($schemaName);
-        }
-
-        // Final fallback: construct from endpoint name
-        $schemaName = str_replace(' ', '', ucwords(str_replace(['-', '_'], ' ', $endpoint->name)));
-
-        return $this->dtoResolver->buildDtoFqn($schemaName);
+        // No DTO found
+        return null;
     }
 
     /**

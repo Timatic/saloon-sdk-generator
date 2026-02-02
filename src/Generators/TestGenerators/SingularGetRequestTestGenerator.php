@@ -46,9 +46,17 @@ class SingularGetRequestTestGenerator
     /**
      * Get the stub path for singular GET request tests
      */
-    public function getStubPath(): string
+    public function getStubPath(Endpoint $endpoint): string
     {
-        return __DIR__.'/../../Stubs/TestGenerators/singular-get-request-test-func.stub';
+        // Check if DTO exists for this endpoint
+        $dtoClassName = $this->getDtoClassName($endpoint);
+        $hasDtoResponse = $dtoClassName && $this->dtoResolver->dtoExists($dtoClassName);
+
+        if ($hasDtoResponse) {
+            return __DIR__.'/../../Stubs/TestGenerators/singular-get-request-test-func.stub';
+        }
+
+        return __DIR__.'/../../Stubs/TestGenerators/singular-get-request-no-dto-test-func.stub';
     }
 
     /**
@@ -56,6 +64,12 @@ class SingularGetRequestTestGenerator
      */
     public function replaceStubVariables(string $functionStub, Endpoint $endpoint): string
     {
+        // Early return if no DTO exists (no-dto stub doesn't need replacements)
+        $dtoClassName = $this->getDtoClassName($endpoint);
+        if (! $dtoClassName || ! $this->dtoResolver->dtoExists($dtoClassName)) {
+            return $functionStub;
+        }
+
         // Generate mock response body (plain JSON object)
         $mockData = $this->generateMockData($endpoint);
         $mockResponseBody = $this->formatArrayAsPhp($mockData);
@@ -82,14 +96,19 @@ class SingularGetRequestTestGenerator
         // Get DTO class name from endpoint response
         $dtoClassName = $this->getDtoClassName($endpoint);
 
+        if (! $dtoClassName) {
+            return [];
+        }
+
         // Generate mock data based on DTO constructor parameters
         return $this->generateMockAttributesFromDto($dtoClassName);
     }
 
     /**
      * Get the DTO class name from endpoint response
+     * Returns null if no DTO can be resolved
      */
-    protected function getDtoClassName(Endpoint $endpoint): string
+    protected function getDtoClassName(Endpoint $endpoint): ?string
     {
         // Use DtoResolver to get the response DTO
         $dtoFqn = $this->dtoResolver->resolveResponseDto($endpoint);
@@ -98,17 +117,8 @@ class SingularGetRequestTestGenerator
             return $dtoFqn;
         }
 
-        // Fallback: try to infer from collection/resource name
-        if ($endpoint->collection) {
-            $schemaName = str_replace(' ', '', ucwords(str_replace(['-', '_'], ' ', $endpoint->collection)));
-
-            return $this->dtoResolver->buildDtoFqn($schemaName);
-        }
-
-        // Final fallback: construct from endpoint name
-        $schemaName = str_replace(' ', '', ucwords(str_replace(['-', '_'], ' ', $endpoint->name)));
-
-        return $this->dtoResolver->buildDtoFqn($schemaName);
+        // No DTO found
+        return null;
     }
 
     /**

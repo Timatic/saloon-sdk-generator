@@ -421,7 +421,7 @@ class PestTestGenerator implements PostProcessor
         $generator = $this->getTestGeneratorForEndpoint($endpoint);
 
         if ($generator) {
-            return $generator->getStubPath();
+            return $generator->getStubPath($endpoint);
         }
 
         // Fallback to generic stub
