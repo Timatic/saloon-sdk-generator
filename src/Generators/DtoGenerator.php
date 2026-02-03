@@ -162,6 +162,14 @@ class DtoGenerator extends Generator
 
         $property->setType($type);
 
+        if ($type === 'array' && $propertySpec instanceof Schema && $propertySpec->items instanceof Reference) {
+            $itemDtoClassName = $this->extractDtoClassNameFromArrayItems($propertySpec);
+
+            if ($itemDtoClassName) {
+                $this->addArrayTypeHint($classConstructor, $propertyName, $itemDtoClassName);
+            }
+        }
+
         if ($name !== $propertyName) {
             $property->addAttribute(MapName::class, [$propertyName]);
 
@@ -169,6 +177,34 @@ class DtoGenerator extends Generator
         }
 
         return false;
+    }
+
+    /**
+     * Extract DTO class name from array items reference.
+     */
+    protected function extractDtoClassNameFromArrayItems(Schema $schema): ?string
+    {
+        if (! $schema->items instanceof Reference) {
+            return null;
+        }
+
+        $referenceName = Str::afterLast($schema->items->getReference(), '/');
+
+        return NameHelper::dtoClassName($referenceName);
+    }
+
+    protected function addArrayTypeHint(
+        Method $classConstructor,
+        string $propertyName,
+        string $itemDtoClassName,
+    ): void {
+        $safeName = NameHelper::safeVariableName($propertyName);
+        $parameter = $classConstructor->getParameter($safeName);
+
+        $itemDtoFqn = $this->buildDtoFqn($itemDtoClassName);
+
+        // Add docblock type hint with short class name (all DTOs are in the same namespace)
+        $parameter->addComment("@var {$itemDtoClassName}[]|null");
     }
 
     /**
