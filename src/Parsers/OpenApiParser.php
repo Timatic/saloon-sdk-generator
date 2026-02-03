@@ -227,7 +227,10 @@ class OpenApiParser implements Parser
                 if ($items instanceof Reference) {
                     $ref = $items->getReference();
                     if (Str::startsWith($ref, '#/components/schemas/')) {
-                        return ['schema' => Str::afterLast($ref, '/')];
+                        return [
+                            'schema' => Str::afterLast($ref, '/'),
+                            'type' => 'array',
+                        ];
                     }
                 }
             }

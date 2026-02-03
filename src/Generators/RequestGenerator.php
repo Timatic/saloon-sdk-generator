@@ -328,10 +328,16 @@ class RequestGenerator extends Generator
 
     /**
      * Determine if endpoint is a collection request.
-     * By default, GET requests without path parameters are considered collections.
+     * Checks if the response schema type is 'array', or falls back to GET without path params.
      */
     protected function isCollectionRequest(Endpoint $endpoint): bool
     {
+        // Check if response indicates an array type (parser sets 'type' => 'array' for array responses)
+        if (isset($endpoint->response['type']) && $endpoint->response['type'] === 'array') {
+            return true;
+        }
+
+        // Fallback to heuristic: GET requests without path parameters are considered collections
         return $endpoint->method->isGet() && empty($endpoint->pathParameters);
     }
 
