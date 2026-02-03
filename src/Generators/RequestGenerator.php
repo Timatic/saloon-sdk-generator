@@ -71,8 +71,8 @@ class RequestGenerator extends Generator
             ->addComment('')
             ->addComment(Utils::wrapLongLines($endpoint->description ?? ''));
 
-        // TODO: We assume JSON body if post/patch, make these assumptions configurable in the future.
-        if ($endpoint->method->isPost() || $endpoint->method->isPatch()) {
+        // TODO: We assume JSON body if post/patch/put, make these assumptions configurable in the future.
+        if ($endpoint->method->isPost() || $endpoint->method->isPatch() || $endpoint->method->isPut()) {
             $classType
                 ->addImplement(HasBody::class)
                 ->addTrait(HasJsonBody::class);
