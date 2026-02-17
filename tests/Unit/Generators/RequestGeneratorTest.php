@@ -109,3 +109,109 @@ test('Default Query', function () {
         ->and($defaultQuery->getBody())->toBe("return array_filter(['channel_id' => \$this->channelId]);\n");
 
 });
+
+test('Hydration method has specific DTO return type for single resource', function () {
+    $generator = new RequestGenerator(new Config(
+        connectorName: 'MyConnector',
+        namespace: 'VendorName'
+    ));
+
+    $spec = new ApiSpecification(
+        name: 'ApiName',
+        description: 'Example API',
+        baseUrl: new BaseUrl(url: 'https://api.example.com'),
+        securityRequirements: [],
+        components: new Components,
+        endpoints: [
+            new Endpoint(
+                name: 'getUser',
+                method: Method::GET,
+                pathSegments: ['users', ':id'],
+                collection: 'Users',
+                response: ['schema' => 'UserDto'],
+                description: 'Get a single user',
+                pathParameters: [new Parameter('int', false, 'id', 'User ID')],
+                queryParameters: [],
+                bodyParameters: []
+            ),
+        ]
+    );
+
+    $phpFiles = $generator->generate($spec);
+    $class = $phpFiles[0]->getNamespaces()['VendorName\Requests\Users']->getClasses()['GetUser'];
+
+    expect($class->hasMethod('createDtoFromResponse'))->toBeTrue();
+
+    $method = $class->getMethod('createDtoFromResponse');
+    expect($method->getReturnType())->toBe('VendorName\Dto\UserDto');
+});
+
+test('Hydration method has Collection return type for list requests', function () {
+    $generator = new RequestGenerator(new Config(
+        connectorName: 'MyConnector',
+        namespace: 'VendorName'
+    ));
+
+    $spec = new ApiSpecification(
+        name: 'ApiName',
+        description: 'Example API',
+        baseUrl: new BaseUrl(url: 'https://api.example.com'),
+        securityRequirements: [],
+        components: new Components,
+        endpoints: [
+            new Endpoint(
+                name: 'getUsers',
+                method: Method::GET,
+                pathSegments: ['users'],
+                collection: 'Users',
+                response: ['schema' => 'UserDto[]'],
+                description: 'Get list of users',
+                pathParameters: [],
+                queryParameters: [],
+                bodyParameters: []
+            ),
+        ]
+    );
+
+    $phpFiles = $generator->generate($spec);
+    $class = $phpFiles[0]->getNamespaces()['VendorName\Requests\Users']->getClasses()['GetUsers'];
+
+    expect($class->hasMethod('createDtoFromResponse'))->toBeTrue();
+
+    $method = $class->getMethod('createDtoFromResponse');
+    expect($method->getReturnType())->toBe('Illuminate\Support\Collection')
+        ->and($method->getComment())->toContain('@return Collection<UserDto>');
+});
+
+test('No hydration method when response is not specified', function () {
+    $generator = new RequestGenerator(new Config(
+        connectorName: 'MyConnector',
+        namespace: 'VendorName'
+    ));
+
+    $spec = new ApiSpecification(
+        name: 'ApiName',
+        description: 'Example API',
+        baseUrl: new BaseUrl(url: 'https://api.example.com'),
+        securityRequirements: [],
+        components: new Components,
+        endpoints: [
+            new Endpoint(
+                name: 'deleteUser',
+                method: Method::DELETE,
+                pathSegments: ['users', ':id'],
+                collection: 'Users',
+                response: null,
+                description: 'Delete a user',
+                pathParameters: [new Parameter('int', false, 'id', 'User ID')],
+                queryParameters: [],
+                bodyParameters: []
+            ),
+        ]
+    );
+
+    $phpFiles = $generator->generate($spec);
+    $class = $phpFiles[0]->getNamespaces()['VendorName\Requests\Users']->getClasses()['DeleteUser'];
+
+    expect($class->hasMethod('createDtoFromResponse'))->toBeFalse();
+});

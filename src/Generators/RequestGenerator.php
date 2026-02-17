@@ -395,8 +395,16 @@ class RequestGenerator extends Generator
         $namespace->addUse($dtoFqcn);
 
         // Add createDtoFromResponse method
-        $method = $classType->addMethod('createDtoFromResponse')
-            ->setReturnType('mixed');
+        $method = $classType->addMethod('createDtoFromResponse');
+
+        // Set specific return type based on request type
+        if ($this->isCollectionRequest($endpoint)) {
+            $namespace->addUse(Collection::class);
+            $method->setReturnType(Collection::class);
+            $method->addComment("@return Collection<int, {$dtoClassName}>");
+        } else {
+            $method->setReturnType($dtoFqcn);
+        }
 
         $param = $method->addParameter('response');
         $param->setType(Response::class);
