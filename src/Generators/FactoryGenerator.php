@@ -221,6 +221,23 @@ class FactoryGenerator implements PostProcessor
     }
 
     /**
+     * Check if a type string represents an Enum type.
+     */
+    protected function isEnumType(?string $typeName): bool
+    {
+        if (! $typeName) {
+            return false;
+        }
+
+        $normalized = ltrim($typeName, '?\\');
+
+        // Check if it's an enum (ends with Enum and contains the Enums namespace)
+        $enumSuffix = $this->config->enumNamespaceSuffix ?? 'Enums';
+
+        return str_ends_with($normalized, 'Enum') && str_contains($normalized, "\\{$enumSuffix}\\");
+    }
+
+    /**
      * Generate the body of the definition() method.
      */
     protected function generateDefinitionBody(string $dtoClassName, array $properties, PhpNamespace $namespace): string
@@ -236,7 +253,8 @@ class FactoryGenerator implements PostProcessor
                 $propertyName,
                 $property['type'],
                 $property['isDateTime'],
-                $referencedDtoClass
+                $referencedDtoClass,
+                $namespace
             );
 
             $lines[] = "    '{$propertyName}' => {$fakerCall},";
@@ -254,9 +272,21 @@ class FactoryGenerator implements PostProcessor
     /**
      * Generate appropriate Faker call for a property.
      */
-    protected function generateFakerCall(string $propertyName, ?string $propertyType, bool $isDateTime, ?string $referencedDtoClass = null): string
+    protected function generateFakerCall(string $propertyName, ?string $propertyType, bool $isDateTime, ?string $referencedDtoClass = null, ?PhpNamespace $namespace = null): string
     {
         $lowerName = strtolower($propertyName);
+
+        // Handle enum types first
+        if ($this->isEnumType($propertyType)) {
+            $enumClass = ltrim($propertyType, '?\\');
+            $shortClassName = class_basename($enumClass);
+
+            if ($namespace) {
+                $namespace->addUse($enumClass);
+            }
+
+            return "\$this->faker->randomElement({$shortClassName}::cases())";
+        }
 
         if ($isDateTime || $propertyType === 'Carbon\\Carbon') {
             return 'Carbon::now()->subDays($this->faker->numberBetween(0, 365))';
