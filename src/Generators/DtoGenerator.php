@@ -22,6 +22,8 @@ class DtoGenerator extends Generator
 
     protected ApiSpecification $specification;
 
+    protected ?EnumGenerator $enumGenerator = null;
+
     public function generate(ApiSpecification $specification): PhpFile|array
     {
         $this->specification = $specification;
@@ -154,6 +156,14 @@ class DtoGenerator extends Generator
         string $type,
         Method $classConstructor,
     ): bool {
+        // Check if property has enum (NEW - before creating parameter)
+        $enumInfo = $this->detectEnum($propertySpec, $classType->getName(), $propertyName);
+
+        if ($enumInfo) {
+            $type = $this->buildEnumFqn($enumInfo['className']);
+            $namespace->addUse($type);
+        }
+
         $name = NameHelper::safeVariableName($propertyName);
 
         $property = $classConstructor->addPromotedParameter($name)
@@ -323,5 +333,51 @@ class DtoGenerator extends Generator
             'null' => 'null',
             default => 'mixed',
         };
+    }
+
+    /**
+     * Set the enum generator instance.
+     */
+    public function setEnumGenerator(?EnumGenerator $enumGenerator): void
+    {
+        $this->enumGenerator = $enumGenerator;
+    }
+
+    /**
+     * Hook: Detect if property has an enum and return enum info.
+     * Override in subclasses for custom enum detection logic.
+     *
+     * @return array|null Array with 'className' key if enum detected, null otherwise
+     */
+    protected function detectEnum(Schema|Reference $propertySpec, string $dtoClassName, string $propertyName): ?array
+    {
+        // Only handle Schema with enum
+        if (! $propertySpec instanceof Schema || ! isset($propertySpec->enum) || ! is_array($propertySpec->enum)) {
+            return null;
+        }
+
+        // Check if enum generation is enabled
+        if (! $this->config->generateEnums || ! $this->enumGenerator) {
+            return null;
+        }
+
+        // Register enum with the enum generator (handles deduplication)
+        return $this->enumGenerator->registerEnum(
+            $propertySpec->enum,
+            $propertySpec->description ?? '',
+            $dtoClassName,
+            $propertyName
+        );
+    }
+
+    /**
+     * Build fully-qualified namespace for enum class.
+     * Override in subclasses if custom enum namespace logic is needed.
+     */
+    protected function buildEnumFqn(string $enumClassName): string
+    {
+        $suffix = $this->config->enumNamespaceSuffix ?? 'Enums';
+
+        return "{$this->config->namespace}\\{$suffix}\\{$enumClassName}";
     }
 }
