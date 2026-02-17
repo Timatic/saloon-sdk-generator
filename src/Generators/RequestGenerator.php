@@ -125,7 +125,7 @@ class RequestGenerator extends Generator
             MethodGeneratorHelper::addParameterAsPromotedProperty($classConstructor, $customizedParam);
         }
 
-        if ($this->isMutationRequest($endpoint)) {
+        if ($this->isMutationRequest($endpoint) && empty($endpoint->bodyParameters)) {
             $this->addRequestBodyParameter($endpoint, $namespace, $classConstructor, $classType);
         }
 
