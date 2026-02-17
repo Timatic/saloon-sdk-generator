@@ -3,6 +3,7 @@
 namespace Crescat\SaloonSdkGenerator\Generators;
 
 use Crescat\SaloonSdkGenerator\Data\Generator\ApiSpecification;
+use Crescat\SaloonSdkGenerator\Data\TaggedOutputFile;
 use Crescat\SaloonSdkGenerator\Generator;
 use Illuminate\Support\Str;
 use Nette\PhpGenerator\EnumType;
@@ -18,15 +19,25 @@ class EnumGenerator extends Generator
 
     /**
      * Generate enums from registered enum specifications.
+     * Returns TaggedOutputFile objects for proper file path handling.
      */
     public function generate(ApiSpecification $specification): PhpFile|array
     {
-        // Return the generated enums from registry
+        // Return the generated enums from registry as TaggedOutputFile
         // The registry is populated by registerEnum() calls from DtoGenerator
         $result = [];
 
+        $suffix = $this->config->enumNamespaceSuffix ?? 'Enums';
+
         foreach ($this->enumRegistry as $enumInfo) {
-            $result[$enumInfo['className']] = $enumInfo['phpFile'];
+            $className = $enumInfo['className'];
+            $phpFile = $enumInfo['phpFile'];
+
+            $result[] = new TaggedOutputFile(
+                tag: 'enum',
+                file: $phpFile,
+                path: "src/{$suffix}/{$className}.php"
+            );
         }
 
         return $result;
