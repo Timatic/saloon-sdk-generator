@@ -329,12 +329,13 @@ class PestTestGenerator implements PostProcessor
     protected function generateDtoImports(array $endpoints): array
     {
         $dtoTypes = [];
+        $enumImports = [];
 
         foreach ($endpoints as $endpoint) {
             // Extract DTO types from all endpoint parameters
             foreach ($endpoint->allParameters() as $parameter) {
                 if ($this->isDtoType($parameter->type)) {
-                    $dtoTypes[$parameter->type] = true; // Use associative array to ensure uniqueness
+                    $dtoTypes[$parameter->type] = true;
                 }
             }
 
@@ -345,12 +346,23 @@ class PestTestGenerator implements PostProcessor
                     $dtoTypes[$bodyDtoClass] = true;
                 }
             }
+
+            // Collect enum imports from mock data for each applicable generator
+            $generator = $this->getTestGeneratorForEndpoint($endpoint);
+            if ($generator && method_exists($generator, 'getEnumImports')) {
+                foreach ($generator->getEnumImports($endpoint) as $fqn) {
+                    $enumImports[$fqn] = true;
+                }
+            }
         }
 
         // Generate use statements for each unique DTO
         $imports = [];
         foreach (array_keys($dtoTypes) as $dtoType) {
             $imports[] = "use {$dtoType};";
+        }
+        foreach (array_keys($enumImports) as $fqn) {
+            $imports[] = "use {$fqn};";
         }
 
         // Sort imports for consistency

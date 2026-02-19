@@ -2,9 +2,12 @@
 
 namespace Crescat\SaloonSdkGenerator\Generators\Traits;
 
+use Crescat\SaloonSdkGenerator\Data\Generator\EnumMockValue;
 use Crescat\SaloonSdkGenerator\Data\Generator\GeneratedCode;
+use Crescat\SaloonSdkGenerator\Data\TaggedOutputFile;
 use Crescat\SaloonSdkGenerator\Helpers\DtoResolver;
 use Nette\PhpGenerator\Parameter;
+use Nette\PhpGenerator\PhpFile;
 use Nette\PhpGenerator\PromotedParameter;
 use Nette\PhpGenerator\Property;
 
@@ -190,6 +193,97 @@ trait DtoAssertions
     }
 
     /**
+     * Get the enum namespace suffix (e.g., 'Enums')
+     */
+    protected function getEnumNamespaceSuffix(): string
+    {
+        return 'Enums';
+    }
+
+    /**
+     * Check if a type string represents a generated Enum type
+     */
+    protected function isEnumType(?string $typeName): bool
+    {
+        if (! $typeName) {
+            return false;
+        }
+
+        $normalized = ltrim($typeName, '?\\');
+        $suffix = $this->getEnumNamespaceSuffix();
+
+        return str_ends_with($normalized, 'Enum') && str_contains($normalized, "\\{$suffix}\\");
+    }
+
+    /**
+     * Resolve the first case of an enum from the generated code registry.
+     * Handles both flat and nested additionalFiles structures.
+     */
+    protected function resolveEnumFirstCase(string $fqn): ?EnumMockValue
+    {
+        $shortName = substr($fqn, strrpos($fqn, '\\') + 1);
+
+        foreach ($this->iterateEnumTaggedFiles() as $taggedFile) {
+            foreach ($taggedFile->file->getNamespaces() as $ns) {
+                foreach ($ns->getClasses() as $class) {
+                    if ($class->getName() !== $shortName) {
+                        continue;
+                    }
+
+                    $cases = $class->getCases();
+                    if (empty($cases)) {
+                        return null;
+                    }
+
+                    $first = reset($cases);
+
+                    return new EnumMockValue(
+                        fqn: $fqn,
+                        shortName: $shortName,
+                        caseName: $first->getName(),
+                        caseValue: (string) $first->getValue(),
+                    );
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Iterate all enum-tagged files, handling both flat and nested additionalFiles structures
+     */
+    private function iterateEnumTaggedFiles(): iterable
+    {
+        foreach ($this->generatedCode->additionalFiles as $item) {
+            $candidates = is_array($item) ? $item : [$item];
+            foreach ($candidates as $candidate) {
+                if ($candidate instanceof TaggedOutputFile
+                    && $candidate->tag === 'enum'
+                    && $candidate->file instanceof PhpFile
+                ) {
+                    yield $candidate;
+                }
+            }
+        }
+    }
+
+    /**
+     * Collect enum use statements (shortName => FQN) from a mock data array
+     */
+    protected function collectEnumUseStatements(array $mockData): array
+    {
+        $uses = [];
+        array_walk_recursive($mockData, function ($value) use (&$uses) {
+            if ($value instanceof EnumMockValue) {
+                $uses[$value->shortName] = $value->fqn;
+            }
+        });
+
+        return $uses;
+    }
+
+    /**
      * Generate a mock value for a DTO parameter based on its type
      */
     protected function generateMockValueForDtoParameter(Parameter|PromotedParameter $parameter): mixed
@@ -223,6 +317,15 @@ trait DtoAssertions
         // DateTime fields
         if ($typeName && (str_contains($typeName, 'Carbon') || str_contains($typeName, 'DateTime'))) {
             return '2025-11-22T10:40:04+00:00';
+        }
+
+        // Enum fields
+        if ($this->isEnumType($typeName)) {
+            $fqn = ltrim($typeName, '?\\');
+            $enumValue = $this->resolveEnumFirstCase($fqn);
+            if ($enumValue !== null) {
+                return $enumValue;
+            }
         }
 
         // Type-based generation (type takes precedence over name-based heuristics)
@@ -278,6 +381,10 @@ trait DtoAssertions
      */
     protected function generateAssertionForValue(string $propertyPath, mixed $value): string
     {
+        if ($value instanceof EnumMockValue) {
+            return "        ->{$propertyPath}->toEqual({$value->shortName}::{$value->caseName})";
+        }
+
         // Handle different value types
         if (is_bool($value)) {
             $expected = $value ? 'true' : 'false';

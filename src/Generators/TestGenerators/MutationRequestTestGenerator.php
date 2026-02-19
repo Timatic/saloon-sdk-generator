@@ -6,6 +6,7 @@ namespace Crescat\SaloonSdkGenerator\Generators\TestGenerators;
 
 use Crescat\SaloonSdkGenerator\Data\Generator\ApiSpecification;
 use Crescat\SaloonSdkGenerator\Data\Generator\Endpoint;
+use Crescat\SaloonSdkGenerator\Data\Generator\EnumMockValue;
 use Crescat\SaloonSdkGenerator\Data\Generator\GeneratedCode;
 use Crescat\SaloonSdkGenerator\Generators\Traits\DtoAssertions;
 use Crescat\SaloonSdkGenerator\Helpers\DtoResolver;
@@ -148,6 +149,10 @@ class MutationRequestTestGenerator
      */
     protected function formatValueForParameter(mixed $value, ?\ReflectionParameter $param): string
     {
+        if ($value instanceof EnumMockValue) {
+            return "{$value->shortName}::{$value->caseName}";
+        }
+
         // Check if parameter is Carbon/DateTime type
         if ($param) {
             $type = $param->getType();
@@ -232,6 +237,18 @@ class MutationRequestTestGenerator
     }
 
     /**
+     * Return enum use statements (shortName => FQN) for this endpoint's mock body data
+     *
+     * @return array<string, string>
+     */
+    public function getEnumImports(Endpoint $endpoint): array
+    {
+        $mockData = $this->generateMockBodyData($endpoint);
+
+        return $this->collectEnumUseStatements($mockData);
+    }
+
+    /**
      * Format array as PHP code
      */
     protected function formatArrayAsPhp(array $data, int $indent = 0): string
@@ -246,10 +263,11 @@ class MutationRequestTestGenerator
         foreach ($data as $key => $value) {
             $formattedKey = is_string($key) ? "'".addslashes($key)."'" : $key;
 
-            if (is_array($value)) {
+            if ($value instanceof EnumMockValue) {
+                $formattedValue = "{$value->shortName}::{$value->caseName}";
+            } elseif (is_array($value)) {
                 $formattedValue = $this->formatArrayAsPhp($value, $indent + 1);
             } elseif (is_object($value)) {
-                // Convert objects to arrays for formatting
                 $formattedValue = $this->formatArrayAsPhp((array) $value, $indent + 1);
             } elseif (is_bool($value)) {
                 $formattedValue = $value ? 'true' : 'false';
