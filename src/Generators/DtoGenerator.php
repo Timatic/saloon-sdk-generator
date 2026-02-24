@@ -24,6 +24,8 @@ class DtoGenerator extends Generator
 
     protected ?EnumGenerator $enumGenerator = null;
 
+    protected ?string $factoryTraitClass = null;
+
     public function generate(ApiSpecification $specification): PhpFile|array
     {
         $this->specification = $specification;
@@ -222,7 +224,16 @@ class DtoGenerator extends Generator
      */
     protected function afterDtoClassGenerated(ClassType $classType, PhpNamespace $namespace, Schema $schema): void
     {
-        //
+        if ($this->factoryTraitClass === null) {
+            return;
+        }
+
+        $dtoName = $classType->getName();
+        $factoryFqn = "{$this->config->namespace}\\{$this->config->factoryNamespaceSuffix}\\{$dtoName}Factory";
+
+        $classType->addTrait($this->factoryTraitClass)
+            ->addComment('@use \\'.$this->factoryTraitClass.'<\\'.$factoryFqn.'>');
+        $classType->addComment("@method static \\{$factoryFqn} testFactory()");
     }
 
     protected function convertOpenApiTypeToPhp(Schema|Reference $schema): string

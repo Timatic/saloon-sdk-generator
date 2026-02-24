@@ -70,6 +70,8 @@ class FactoryGenerator implements PostProcessor
             ->setReturnType('string')
             ->setVisibility('protected');
 
+        $this->afterFactoryClassGenerated($classType, $namespace, $dtoFullClass);
+
         $this->generated[$factoryName] = new TaggedOutputFile(
             tag: 'factories',
             file: (string) $classFile,
@@ -77,6 +79,11 @@ class FactoryGenerator implements PostProcessor
         );
 
         return $classFile;
+    }
+
+    protected function afterFactoryClassGenerated(ClassType $classType, PhpNamespace $namespace, string $dtoFullClass): void
+    {
+        $classType->addComment('@extends \\'.$this->factoryClass.'<\\'.$dtoFullClass.'>');
     }
 
     /**

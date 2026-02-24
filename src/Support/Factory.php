@@ -7,6 +7,9 @@ use Faker\Generator;
 use Illuminate\Support\Collection;
 use Spatie\LaravelData\Data;
 
+/**
+ * @template TModel of Data
+ */
 abstract class Factory
 {
     protected Generator $faker;
@@ -49,7 +52,7 @@ abstract class Factory
     /**
      * Generate one or more model instances.
      *
-     * @return Data|Collection<int, Data>
+     * @return TModel|Collection<int, TModel>
      */
     public function make(): Data|Collection
     {
@@ -61,11 +64,24 @@ abstract class Factory
     }
 
     /**
+     * Alias for make() for API consistency with Laravel factories.
+     *
+     * @return TModel|Collection<int, TModel>
+     */
+    public function create(): Data|Collection
+    {
+        return $this->make();
+    }
+
+    /**
      * Generate a single model instance.
+     *
+     * @return TModel
      */
     protected function makeOne(): Data
     {
         $modelClass = $this->modelClass();
+        /** @var TModel $model */
         $model = new $modelClass;
 
         $attributes = array_merge($this->definition(), $this->states);
