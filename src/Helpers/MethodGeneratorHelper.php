@@ -30,11 +30,13 @@ class MethodGeneratorHelper
 
         $name = NameHelper::safeVariableName($parameter->name);
 
+        $docType = self::toAbsoluteDocType($parameter->type);
+
         $property = $method
             ->addComment(
                 trim(sprintf(
                     '@param %s $%s %s',
-                    $parameter->nullable ? "null|{$parameter->type}" : $parameter->type,
+                    $parameter->nullable ? "null|{$docType}" : $docType,
                     $name,
                     $parameter->description
                 ))
@@ -57,6 +59,24 @@ class MethodGeneratorHelper
         }
 
         return $method;
+    }
+
+    /**
+     * Prefix non-primitive type parts with \ so docblock types are absolute FQNs
+     * and static analysers resolve them correctly regardless of current namespace.
+     */
+    private static function toAbsoluteDocType(string $type): string
+    {
+        $primitives = ['null', 'bool', 'int', 'float', 'string', 'array', 'object', 'mixed', 'void', 'never', 'static', 'self', 'parent', 'true', 'false'];
+
+        return implode('|', array_map(function (string $part) use ($primitives): string {
+            $part = trim($part);
+            if (in_array(strtolower($part), $primitives, true) || str_starts_with($part, '\\')) {
+                return $part;
+            }
+
+            return '\\'.$part;
+        }, explode('|', $type)));
     }
 
     /**
