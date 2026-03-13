@@ -158,14 +158,49 @@ All features are backward-compatible with the original package and can be adopte
 You can install this package using Composer:
 
 ```shell
-composer global require crescat-io/saloon-sdk-generator
+composer global timatic/saloon-sdk-generator
 ```
 
 ## Usage
 
-### Generate SDK from OpenAPI or Postman Collection
+### First run: generate with `--foundation`
 
-To generate the PHP SDK from an API specification file, run the following command:
+When you run the generator for the first time, use `--foundation` to generate the static support files (config, service provider, test setup). These can be changed manually afterward.
+
+Recommended first-time setup:
+1. Create your project directory, e.g. `mkdir my-sdk && cd my-sdk && git init`
+2. Initialize Composer: `composer init` — the generator depends on the PSR-4 autoload namespace
+3. Run the generator with `--foundation`
+
+```shell
+sdkgenerator generate:sdk API_SPEC_FILE.{json|yaml|yml} \
+    --foundation \
+    --name=MyApi \
+    --base-url=https://api.example.com \
+    --output=./my-sdk \
+    --force
+```
+
+What `--foundation` does:
+- Generates a Laravel config file with the base URL as `env()` fallback value
+- Generates a service provider that registers the connector
+- Generates a test setup with Orchestra Testbench and config injection
+- When used with `--pest`, the foundation test setup replaces the default simple stubs
+- If `vendor/bin/pint` is available in the output directory, code is automatically formatted after generation
+
+### Re-runs: without `--foundation`
+
+On subsequent runs, the generator automatically reads the connector name and base URL from the existing config file in the output directory. You don't need to repeat `--name` and `--base-url`:
+
+```shell
+sdkgenerator generate:sdk API_SPEC_FILE.{json|yaml|yml} \
+    --output=./my-sdk \
+    --force
+```
+
+You can still pass `--name` or `--base-url` to override the values read from the config file.
+
+### Command reference
 
 ```shell
 sdkgenerator generate:sdk API_SPEC_FILE.{json|yaml|yml}
@@ -182,20 +217,20 @@ sdkgenerator generate:sdk API_SPEC_FILE.{json|yaml|yml}
     [--base-url=BASE_URL]
 ```
 
-Replace the placeholders with the appropriate values:
-
-- `API_SPEC_FILE`: Path to the API specification file (JSON or YAML format).
-- `--type`: Specify the type of API specification (`postman` or `openapi`).
-- `--name`: (Optional) Specify the name of the generated SDK (default: Unnamed).
-- `--namespace`: (Optional) Specify the root namespace for the SDK (default: `App\\Sdk`).
-- `--output`: (Optional) Specify the output path where the generated code will be created (default: ./Generated).
-- `--force`: (Optional) Force overwriting existing files.
-- `--dry`: (Optional) Perform a dry run. It will not save generated files, only show a list of them.
-- `--zip`: (Optional) Use this flag to generate a zip archive containing all the generated files.
-- `--pest`: (Optional) Generate Pest test suites for each resource.
-- `--factory`: (Optional) Generate factory classes for each DTO.
-- `--foundation`: (Optional) Generate Laravel foundation files: config, service provider, and test setup (Orchestra Testbench with config injection). When used with `--pest`, the foundation test setup replaces the default simple stubs. If `vendor/bin/pint` is available in the output directory, code is automatically formatted after generation.
-- `--base-url`: (Optional) Default base URL for the API. Used in the generated config file as env() fallback value. Only applies when `--foundation` is active.
+| Option | Description |
+|--------|-------------|
+| `API_SPEC_FILE` | Path to the API specification file (JSON or YAML format) |
+| `--type` | Type of API specification: `postman` or `openapi` (default: `openapi`) |
+| `--name` | Name of the generated SDK. Required with `--foundation`, auto-detected on re-runs from existing config |
+| `--namespace` | Root namespace for the SDK (default: `App\\Sdk`) |
+| `--output` | Output path for generated code (default: `./build`) |
+| `--force` | Force overwriting existing files |
+| `--dry` | Dry run — show files without writing them |
+| `--zip` | Generate a zip archive of all files |
+| `--pest` | Generate Pest test suites for each resource |
+| `--factory` | Generate factory classes for each DTO |
+| `--foundation` | Generate Laravel foundation files (config, service provider, test setup) |
+| `--base-url` | Base URL for the API. Used in config as `env()` fallback. Auto-detected on re-runs from existing config |
 
 **Note:** Due to PHP using Backslashes `\`, when specifying the `--namespace`, you need to escape any backslashes like
 so:
