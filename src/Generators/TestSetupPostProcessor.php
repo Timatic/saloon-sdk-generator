@@ -45,7 +45,7 @@ PHP;
     {
         $configKey = $config->resolvedConfigKey();
         $appName = preg_replace('/Connector$/', '', $config->connectorName);
-        $envVarPrefix = strtoupper($configKey);
+        $envVarPrefix = strtoupper(str_replace(['-', '.'], '_', $configKey));
 
         $baseUrlEnvCall = $config->baseUrl !== null
             ? "env('{$envVarPrefix}_BASE_URL', '{$config->baseUrl}')"

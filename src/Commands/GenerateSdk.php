@@ -86,7 +86,6 @@ class GenerateSdk extends Command
             $generator->registerPostProcessor(new TestSetupPostProcessor);
         }
 
-        // Always generate composer.json
         $generator->registerPostProcessor(new ComposerGenerator($this->option('pest')));
 
         try {
@@ -192,34 +191,10 @@ class GenerateSdk extends Command
         }
 
         if ($this->option('pest')) {
-
             $this->comment("\nTests:");
-            foreach ($result->getWithTag('pest') as $test) {
-                // TODO: Temporary Hacky workaround due to the way the PestTestGenerator works (not returning PhpFile)
-
-                $testFilePath = $this->option('output').'/'.$test->path;
-
-                if (! file_exists(dirname($testFilePath))) {
-                    mkdir(dirname($testFilePath), recursive: true);
-                }
-
-                if (file_exists($testFilePath) && ! $this->option('force')) {
-                    $this->warn("- File already exists: $testFilePath");
-
-                    return;
-                }
-
-                $ok = file_put_contents($testFilePath, $test->file);
-
-                if ($ok === false) {
-                    $this->error("- Failed to write: $testFilePath");
-                } else {
-                    $this->line("- Created: $testFilePath");
-                }
-            }
+            $this->dumpTaggedFiles($result->getWithTag('pest'));
         }
 
-        // Handle other additional files (composer.json, etc.) - excluding test files
         $otherFiles = collect($result->additionalFiles)
             ->filter(fn ($file) => $file instanceof \Crescat\SaloonSdkGenerator\Data\TaggedOutputFile)
             ->filter(fn ($file) => $file->tag !== 'pest')
@@ -227,33 +202,37 @@ class GenerateSdk extends Command
 
         if ($otherFiles->isNotEmpty()) {
             $this->comment("\nProject Files:");
-            foreach ($otherFiles as $file) {
-                $filePath = $this->option('output').'/'.$file->path;
+            $this->dumpTaggedFiles($otherFiles);
+        }
+    }
 
-                if (! file_exists(dirname($filePath))) {
-                    mkdir(dirname($filePath), recursive: true);
-                }
+    protected function dumpTaggedFiles(iterable $files): void
+    {
+        foreach ($files as $file) {
+            $filePath = $this->option('output').'/'.$file->path;
 
-                if (file_exists($filePath) && ! $this->option('force')) {
-                    $this->warn("- File already exists: $filePath");
+            if (! file_exists(dirname($filePath))) {
+                mkdir(dirname($filePath), recursive: true);
+            }
 
-                    continue;
-                }
+            if (file_exists($filePath) && ! $this->option('force')) {
+                $this->warn("- File already exists: $filePath");
 
-                $ok = file_put_contents($filePath, $file->file);
+                continue;
+            }
 
-                if ($ok === false) {
-                    $this->error("- Failed to write: $filePath");
-                } else {
-                    $this->line("- Created: $filePath");
-                }
+            $ok = file_put_contents($filePath, $file->file);
+
+            if ($ok === false) {
+                $this->error("- Failed to write: $filePath");
+            } else {
+                $this->line("- Created: $filePath");
             }
         }
     }
 
     protected function dumpToFile(PhpFile $file, $overrideFilePath = null): void
     {
-
         // TODO: Cleanup this, brittle and will break if you change the namespace
         $wip = sprintf(
             '%s/%s/%s.php',
@@ -262,7 +241,6 @@ class GenerateSdk extends Command
             Arr::first($file->getClasses())?->getName(),
         );
 
-        // TODO: cleanup
         $filePath = $overrideFilePath ?? Str::of($wip)->replace('\\', '/')->replace('//', '/')->toString();
 
         if (! file_exists(dirname($filePath))) {

@@ -39,7 +39,6 @@ class Config
         public readonly array $extra = [],
         public readonly ?string $configKey = null,
         public readonly ?string $baseUrl = null,
-
     ) {}
 
     public function resolvedConfigKey(): string

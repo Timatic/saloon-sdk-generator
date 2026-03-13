@@ -15,7 +15,6 @@ use Crescat\SaloonSdkGenerator\Generators\TestGenerators\MutationRequestTestGene
 use Crescat\SaloonSdkGenerator\Generators\TestGenerators\SingularGetRequestTestGenerator;
 use Crescat\SaloonSdkGenerator\Helpers\DtoResolver;
 use Crescat\SaloonSdkGenerator\Helpers\NameHelper;
-use Exception;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Nette\PhpGenerator\PhpFile;
@@ -51,42 +50,12 @@ class PestTestGenerator implements PostProcessor
         $this->specification = $specification;
         $this->generatedCode = $generatedCode;
 
-        // Initialize DtoResolver with GeneratedCode
         $this->dtoResolver = $this->createDtoResolver($config, $generatedCode);
-
-        // Initialize test generators with DtoResolver
-        $this->collectionTestGenerator = $this->createCollectionTestGenerator(
-            $specification,
-            $generatedCode,
-            $config->namespace,
-            $this->dtoResolver
-        );
-        $this->singularGetTestGenerator = $this->createSingularGetTestGenerator(
-            $specification,
-            $generatedCode,
-            $config->namespace,
-            $this->dtoResolver
-        );
-        $this->mutationTestGenerator = $this->createMutationTestGenerator(
-            $specification,
-            $generatedCode,
-            $config->namespace,
-            $this->dtoResolver
-        );
-        $this->deleteTestGenerator = $this->createDeleteTestGenerator(
-            $specification,
-            $generatedCode,
-            $config->namespace,
-            $this->dtoResolver
-        );
+        $this->initializeTestGenerators($specification, $generatedCode, $config->namespace, $this->dtoResolver);
 
         return $this->generatePestTests();
     }
 
-    /**
-     * Factory method to create DtoResolver instance.
-     * Override this to provide custom DtoResolver implementations.
-     */
     protected function createDtoResolver(Config $config, GeneratedCode $generatedCode): DtoResolver
     {
         $resolver = new DtoResolver($config);
@@ -95,61 +64,19 @@ class PestTestGenerator implements PostProcessor
         return $resolver;
     }
 
-    /**
-     * Factory method to create CollectionRequestTestGenerator instance.
-     * Override this to provide custom test generator implementations.
-     */
-    protected function createCollectionTestGenerator(
+    protected function initializeTestGenerators(
         ApiSpecification $specification,
         GeneratedCode $generatedCode,
         string $namespace,
-        DtoResolver $dtoResolver
-    ): CollectionRequestTestGenerator {
-        return new CollectionRequestTestGenerator($specification, $generatedCode, $namespace, $dtoResolver);
+        DtoResolver $dtoResolver,
+    ): void {
+        $this->collectionTestGenerator = new CollectionRequestTestGenerator($specification, $generatedCode, $namespace, $dtoResolver);
+        $this->singularGetTestGenerator = new SingularGetRequestTestGenerator($specification, $generatedCode, $namespace, $dtoResolver);
+        $this->mutationTestGenerator = new MutationRequestTestGenerator($specification, $generatedCode, $namespace, $dtoResolver);
+        $this->deleteTestGenerator = new DeleteRequestTestGenerator($specification, $generatedCode, $namespace, $dtoResolver);
     }
 
-    /**
-     * Factory method to create SingularGetRequestTestGenerator instance.
-     * Override this to provide custom test generator implementations.
-     */
-    protected function createSingularGetTestGenerator(
-        ApiSpecification $specification,
-        GeneratedCode $generatedCode,
-        string $namespace,
-        DtoResolver $dtoResolver
-    ): SingularGetRequestTestGenerator {
-        return new SingularGetRequestTestGenerator($specification, $generatedCode, $namespace, $dtoResolver);
-    }
-
-    /**
-     * Factory method to create MutationRequestTestGenerator instance.
-     * Override this to provide custom test generator implementations.
-     */
-    protected function createMutationTestGenerator(
-        ApiSpecification $specification,
-        GeneratedCode $generatedCode,
-        string $namespace,
-        DtoResolver $dtoResolver
-    ): MutationRequestTestGenerator {
-        return new MutationRequestTestGenerator($specification, $generatedCode, $namespace, $dtoResolver);
-    }
-
-    /**
-     * Factory method to create DeleteRequestTestGenerator instance.
-     * Override this to provide custom test generator implementations.
-     */
-    protected function createDeleteTestGenerator(
-        ApiSpecification $specification,
-        GeneratedCode $generatedCode,
-        string $namespace,
-        DtoResolver $dtoResolver
-    ): DeleteRequestTestGenerator {
-        return new DeleteRequestTestGenerator($specification, $generatedCode, $namespace, $dtoResolver);
-    }
-
-    /**
-     * @return array|TaggedOutputFile[]
-     */
+    /** @return TaggedOutputFile[] */
     protected function generatePestTests(): array
     {
         $classes = [];
@@ -172,7 +99,6 @@ class PestTestGenerator implements PostProcessor
 
         foreach ($groupedByCollection as $collection => $items) {
             $classes[] = $this->generateTest($collection, $items->toArray());
-
         }
 
         return $classes;
@@ -204,12 +130,9 @@ class PestTestGenerator implements PostProcessor
         );
     }
 
-    /**
-     * @param  array|Endpoint[]  $endpoints
-     */
-    public function generateTest(string $resourceName, array $endpoints): PhpFile|TaggedOutputFile|null
+    /** @param Endpoint[] $endpoints */
+    public function generateTest(string $resourceName, array $endpoints): TaggedOutputFile
     {
-
         $fileStub = file_get_contents($this->getTestStubPath());
 
         $fileStub = str_replace('{{ prelude }}', '', $fileStub);
@@ -251,7 +174,6 @@ class PestTestGenerator implements PostProcessor
 
         $fileStub = str_replace('{{ requestImports }}', implode("\n", $imports), $fileStub);
 
-        // Generate DTO imports
         $dtoImports = $this->generateDtoImports($endpoints);
         $fileStub = str_replace('{{ dtoImports }}', implode("\n", $dtoImports), $fileStub);
 
@@ -289,7 +211,6 @@ class PestTestGenerator implements PostProcessor
             ];
 
             foreach ($combined as $param) {
-                // Hook: Allow customization of parameter names in tests
                 $paramName = $this->getTestParameterName($param, $endpoint);
 
                 $methodArguments[] = sprintf('%s: %s', $paramName, match ($param->type) {
@@ -310,40 +231,26 @@ class PestTestGenerator implements PostProcessor
             $fileStub .= "\n\n{$functionStub}";
         }
 
-        try {
-
-            return new TaggedOutputFile(
-                tag: 'pest',
-                file: $fileStub,
-                path: $this->getTestPath($resourceName),
-            );
-        } catch (Exception $e) {
-
-            // TODO: Inform about exception
-            return null;
-        }
-
+        return new TaggedOutputFile(
+            tag: 'pest',
+            file: $fileStub,
+            path: $this->getTestPath($resourceName),
+        );
     }
 
-    /**
-     * Generate DTO import statements for endpoints
-     *
-     * @param  array|Endpoint[]  $endpoints
-     */
+    /** @param Endpoint[] $endpoints */
     protected function generateDtoImports(array $endpoints): array
     {
         $dtoTypes = [];
         $enumImports = [];
 
         foreach ($endpoints as $endpoint) {
-            // Extract DTO types from all endpoint parameters
             foreach ($endpoint->allParameters() as $parameter) {
                 if ($this->isDtoType($parameter->type)) {
                     $dtoTypes[$parameter->type] = true;
                 }
             }
 
-            // For mutation requests, also check for request body DTO
             if ($this->mutationTestGenerator->isApplicable($endpoint)) {
                 $bodyDtoClass = $this->mutationTestGenerator->getRequestBodyDtoClassName($endpoint);
                 if ($bodyDtoClass && $this->isDtoType($bodyDtoClass)) {
@@ -351,7 +258,6 @@ class PestTestGenerator implements PostProcessor
                 }
             }
 
-            // Collect enum imports from mock data for each applicable generator
             $generator = $this->getTestGeneratorForEndpoint($endpoint);
             if ($generator && method_exists($generator, 'getEnumImports')) {
                 foreach ($generator->getEnumImports($endpoint) as $fqn) {
@@ -360,7 +266,6 @@ class PestTestGenerator implements PostProcessor
             }
         }
 
-        // Generate use statements for each unique DTO
         $imports = [];
         foreach (array_keys($dtoTypes) as $dtoType) {
             $imports[] = "use {$dtoType};";
@@ -369,36 +274,24 @@ class PestTestGenerator implements PostProcessor
             $imports[] = "use {$fqn};";
         }
 
-        // Sort imports for consistency
         sort($imports);
 
         return $imports;
     }
 
-    /**
-     * Check if a type is a DTO type (fully qualified class name in our DTO namespace)
-     */
     protected function isDtoType(string $type): bool
     {
-        // Must contain a backslash (namespace separator)
         if (! str_contains($type, '\\')) {
             return false;
         }
 
-        // Must start with our configured namespace
         if (! str_starts_with($type, $this->config->namespace)) {
             return false;
         }
 
-        // Must be in the DTO namespace
-        $dtoNamespacePart = "\\{$this->config->dtoNamespaceSuffix}\\";
-
-        return str_contains($type, $dtoNamespacePart);
+        return str_contains($type, "\\{$this->config->dtoNamespaceSuffix}\\");
     }
 
-    /**
-     * Hook: Determine if Pest.php should be generated
-     */
     protected function shouldGeneratePestFile(): bool
     {
         return $this->generateTestSetup;
@@ -409,41 +302,27 @@ class PestTestGenerator implements PostProcessor
         return $this->generateTestSetup;
     }
 
-    /**
-     * Hook: Filter endpoints to include in test generation
-     */
     protected function shouldIncludeEndpoint(Endpoint $endpoint): bool
     {
         return true;
     }
 
-    /**
-     * Hook: Get path to test file stub template
-     */
     protected function getTestStubPath(): string
     {
         return __DIR__.'/../Stubs/pest-resource-test.stub';
     }
 
-    /**
-     * Hook: Get path to test function stub template
-     */
     protected function getTestFunctionStubPath(Endpoint $endpoint): string
     {
-        // Delegate to specialized test generator if available
         $generator = $this->getTestGeneratorForEndpoint($endpoint);
 
         if ($generator) {
             return $generator->getStubPath($endpoint);
         }
 
-        // Fallback to generic stub
         return __DIR__.'/../Stubs/pest-resource-test-func.stub';
     }
 
-    /**
-     * Get the appropriate test generator for an endpoint
-     */
     protected function getTestGeneratorForEndpoint(Endpoint $endpoint): CollectionRequestTestGenerator|SingularGetRequestTestGenerator|MutationRequestTestGenerator|DeleteRequestTestGenerator|null
     {
         if ($this->collectionTestGenerator->isApplicable($endpoint)) {
@@ -465,14 +344,10 @@ class PestTestGenerator implements PostProcessor
         return null;
     }
 
-    /**
-     * Hook: Get request class name for an endpoint
-     */
     protected function getRequestClassName(Endpoint $endpoint): string
     {
         $className = NameHelper::requestClassName($endpoint->name);
 
-        // Optionally append "Request" suffix if configured
         if ($this->config->suffixRequestClasses && ! str_ends_with($className, 'Request')) {
             $className .= 'Request';
         }
@@ -480,32 +355,22 @@ class PestTestGenerator implements PostProcessor
         return $className;
     }
 
-    /**
-     * Hook: Get method name for test function
-     */
     protected function getMethodName(Endpoint $endpoint, string $requestClassName): string
     {
         return NameHelper::safeVariableName($requestClassName);
     }
 
-    /**
-     * Hook: Get the test file path for a resource
-     */
     protected function getTestPath(string $resourceName): string
     {
         return "tests/Requests/{$resourceName}Test.php";
     }
 
-    /**
-     * Hook: Replace additional stub variables to replace in test function stubs
-     */
     protected function replaceAdditionalStubVariables(
         string $functionStub,
         Endpoint $endpoint,
         string $resourceName,
-        string $requestClassName
+        string $requestClassName,
     ): string {
-        // Delegate to specialized test generator if available
         $generator = $this->getTestGeneratorForEndpoint($endpoint);
 
         if ($generator) {
@@ -515,15 +380,6 @@ class PestTestGenerator implements PostProcessor
         return $functionStub;
     }
 
-    /**
-     * Hook: Get parameter name for test method arguments
-     *
-     * Override this to customize parameter names in tests.
-     * You can check if it's a path parameter with: in_array($parameter, $endpoint->pathParameters, true)
-     *
-     * @param  Parameter  $parameter  The parameter to get the name for
-     * @param  Endpoint  $endpoint  The endpoint being tested
-     */
     protected function getTestParameterName(Parameter $parameter, Endpoint $endpoint): string
     {
         return NameHelper::safeVariableName($parameter->name);

@@ -40,9 +40,8 @@ class PintRunner
             return;
         }
 
-        stream_get_contents($pipes[1]);
-        $stderr = stream_get_contents($pipes[2]);
         fclose($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
         fclose($pipes[2]);
         $exitCode = proc_close($process);
 

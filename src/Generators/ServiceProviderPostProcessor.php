@@ -33,15 +33,11 @@ class ServiceProviderPostProcessor implements PostProcessor
         $this->addRegisterMethod($class, $configKey, $appName);
         $this->addBootMethod($class, $configKey);
 
-        $providerPath = str_replace('\\', '/', $config->namespace.'\\Providers');
-        $basePath = str_replace('\\', '/', $config->namespace);
-        $relativePath = str_replace($basePath.'/', '', $providerPath);
-
         return [
             new TaggedOutputFile(
                 tag: 'foundation',
                 file: $file,
-                path: "src/{$relativePath}/{$appName}ServiceProvider.php",
+                path: "src/Providers/{$appName}ServiceProvider.php",
             ),
         ];
     }
