@@ -8,9 +8,13 @@ use Crescat\SaloonSdkGenerator\Data\Generator\GeneratedCode;
 use Crescat\SaloonSdkGenerator\Exceptions\ParserNotRegisteredException;
 use Crescat\SaloonSdkGenerator\Factory;
 use Crescat\SaloonSdkGenerator\Generators\ComposerGenerator;
+use Crescat\SaloonSdkGenerator\Generators\ConfigPostProcessor;
 use Crescat\SaloonSdkGenerator\Generators\FactoryGenerator;
 use Crescat\SaloonSdkGenerator\Generators\PestTestGenerator;
+use Crescat\SaloonSdkGenerator\Generators\ServiceProviderPostProcessor;
+use Crescat\SaloonSdkGenerator\Generators\TestSetupPostProcessor;
 use Crescat\SaloonSdkGenerator\Helpers\Utils;
+use Crescat\SaloonSdkGenerator\Services\PintRunner;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use LaravelZero\Framework\Commands\Command;
@@ -29,7 +33,9 @@ class GenerateSdk extends Command
                             {--dry : Dry run, will only show the files to be generated, does not create or modify any files.}
                             {--zip : Generate a zip archive containing all the files}
                             {--pest : Generate Pest test suites for each resource}
-                            {--factory : Generate factory classes for each DTO}';
+                            {--factory : Generate factory classes for each DTO}
+                            {--foundation : Generate Laravel foundation files (config, service provider, test setup)}
+                            {--base-url= : Base URL for the API (used with --foundation)}';
 
     protected $description = 'Generate an SDK based on an API specification file.';
 
@@ -46,6 +52,8 @@ class GenerateSdk extends Command
 
         $type = trim(strtolower($this->option('type')));
 
+        $foundation = $this->option('foundation');
+
         $generator = new CodeGenerator(
             config: new Config(
                 connectorName: $this->option('name'),
@@ -57,16 +65,25 @@ class GenerateSdk extends Command
                     'after',
                     'order_by',
                     'per_page',
-                ]
+                ],
+                baseUrl: $this->option('base-url'),
             ),
         );
 
         if ($this->option('pest')) {
-            $generator->registerPostProcessor(new PestTestGenerator);
+            $generator->registerPostProcessor(new PestTestGenerator(
+                generateTestSetup: ! $foundation,
+            ));
         }
 
         if ($this->option('factory')) {
             $generator->registerPostProcessor(new FactoryGenerator);
+        }
+
+        if ($foundation) {
+            $generator->registerPostProcessor(new ConfigPostProcessor);
+            $generator->registerPostProcessor(new ServiceProviderPostProcessor);
+            $generator->registerPostProcessor(new TestSetupPostProcessor);
         }
 
         // Always generate composer.json
@@ -98,6 +115,10 @@ class GenerateSdk extends Command
         $this->option('zip')
             ? $this->generateZipArchive($result)
             : $this->dumpGeneratedFiles($result);
+
+        if ($foundation) {
+            (new PintRunner)->run($this->option('output'), $this->getOutput());
+        }
     }
 
     protected function printGeneratedFiles(GeneratedCode $result): void
@@ -135,6 +156,13 @@ class GenerateSdk extends Command
             $this->comment("\nFactories:");
             foreach ($result->getWithTag('factories') as $factory) {
                 $this->line($factory->path);
+            }
+        }
+
+        if ($this->option('foundation')) {
+            $this->comment("\nFoundation:");
+            foreach ($result->getWithTag('foundation') as $file) {
+                $this->line($file->path);
             }
         }
     }
