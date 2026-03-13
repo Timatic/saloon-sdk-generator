@@ -22,6 +22,10 @@ use Nette\PhpGenerator\PhpFile;
 
 class PestTestGenerator implements PostProcessor
 {
+    public function __construct(
+        protected bool $generateTestSetup = true,
+    ) {}
+
     protected Config $config;
 
     protected ApiSpecification $specification;
@@ -397,15 +401,12 @@ class PestTestGenerator implements PostProcessor
      */
     protected function shouldGeneratePestFile(): bool
     {
-        return true;
+        return $this->generateTestSetup;
     }
 
-    /**
-     * Hook: Determine if TestCase.php should be generated
-     */
     protected function shouldGenerateTestCaseFile(): bool
     {
-        return true;
+        return $this->generateTestSetup;
     }
 
     /**
