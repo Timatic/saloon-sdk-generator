@@ -14,6 +14,7 @@ use Crescat\SaloonSdkGenerator\Generators\PestTestGenerator;
 use Crescat\SaloonSdkGenerator\Generators\ServiceProviderPostProcessor;
 use Crescat\SaloonSdkGenerator\Generators\TestSetupPostProcessor;
 use Crescat\SaloonSdkGenerator\Helpers\Utils;
+use Crescat\SaloonSdkGenerator\Services\ConfigValuesService;
 use Crescat\SaloonSdkGenerator\Services\PintRunner;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
@@ -53,10 +54,27 @@ class GenerateSdk extends Command
         $type = trim(strtolower($this->option('type')));
 
         $foundation = $this->option('foundation');
+        $outputDir = $this->option('output');
+
+        $connectorName = $this->option('name');
+        $baseUrl = $this->option('base-url');
+
+        if (! $foundation) {
+            $configValues = (new ConfigValuesService)->resolveFromExisting(
+                $outputDir,
+                connectorName: $connectorName !== 'Unnamed' ? $connectorName : null,
+                baseUrl: $baseUrl,
+            );
+
+            if ($configValues !== null) {
+                $connectorName = $configValues['connectorName'];
+                $baseUrl = $configValues['baseUrl'];
+            }
+        }
 
         $generator = new CodeGenerator(
             config: new Config(
-                connectorName: $this->option('name'),
+                connectorName: $connectorName,
                 namespace: $this->option('namespace'),
                 resourceNamespaceSuffix: 'Resource',
                 requestNamespaceSuffix: 'Requests',
@@ -66,7 +84,7 @@ class GenerateSdk extends Command
                     'order_by',
                     'per_page',
                 ],
-                baseUrl: $this->option('base-url'),
+                baseUrl: $baseUrl,
             ),
         );
 

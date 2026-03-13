@@ -6,22 +6,6 @@ use Illuminate\Support\Str;
 
 class Config
 {
-    /**
-     * @param  string|null  $connectorName  The name of the connector class.
-     * @param  string|null  $namespace  The main namespace for the generated SDK.
-     * @param  string|null  $resourceNamespaceSuffix  The suffix for the resource namespace.
-     * @param  string|null  $requestNamespaceSuffix  The suffix for the request namespace.
-     * @param  string|null  $dtoNamespaceSuffix  The suffix for the DTO namespace.
-     * @param  string|null  $factoryNamespaceSuffix  The suffix for the Factory namespace.
-     * @param  string|null  $enumNamespaceSuffix  The suffix for the Enum namespace.
-     * @param  string|null  $fallbackResourceName  The default name to use for resources if none could be inferred from the specification.
-     * @param  bool  $suffixRequestClasses  Whether to append "Request" suffix to request class names.
-     * @param  bool  $generateEnums  Whether to generate PHP 8.1+ backed enums from OpenAPI enum specifications.
-     * @param  array  $ignoredQueryParams  List of query parameters that should be ignored.
-     * @param  array  $ignoredBodyParams  List of body parameters that should be ignored.
-     * @param  array  $ignoredHeaderParams  List of header parameters that should be ignored.
-     * @param  array  $extra  Additional configuration for custom code generators.
-     */
     public function __construct(
         public readonly ?string $connectorName,
         public readonly ?string $namespace,
@@ -43,6 +27,11 @@ class Config
 
     public function resolvedConfigKey(): string
     {
-        return $this->configKey ?? Str::lower(preg_replace('/Connector$/', '', $this->connectorName));
+        return $this->configKey ?? self::deriveConfigKey($this->connectorName);
+    }
+
+    public static function deriveConfigKey(string $connectorName): string
+    {
+        return Str::lower(preg_replace('/Connector$/', '', $connectorName));
     }
 }
