@@ -169,13 +169,17 @@ To generate the PHP SDK from an API specification file, run the following comman
 
 ```shell
 sdkgenerator generate:sdk API_SPEC_FILE.{json|yaml|yml}
-     --type={postman|openapi} 
-    [--name=SDK_NAME] 
-    [--output=OUTPUT_PATH] 
-    [--namespace=Company\\Integration] 
-    [--force] 
-    [--dry] 
+     --type={postman|openapi}
+    [--name=SDK_NAME]
+    [--output=OUTPUT_PATH]
+    [--namespace=Company\\Integration]
+    [--force]
+    [--dry]
     [--zip]
+    [--pest]
+    [--factory]
+    [--foundation]
+    [--base-url=BASE_URL]
 ```
 
 Replace the placeholders with the appropriate values:
@@ -188,6 +192,10 @@ Replace the placeholders with the appropriate values:
 - `--force`: (Optional) Force overwriting existing files.
 - `--dry`: (Optional) Perform a dry run. It will not save generated files, only show a list of them.
 - `--zip`: (Optional) Use this flag to generate a zip archive containing all the generated files.
+- `--pest`: (Optional) Generate Pest test suites for each resource.
+- `--factory`: (Optional) Generate factory classes for each DTO.
+- `--foundation`: (Optional) Generate Laravel foundation files: config, service provider, and test setup (Orchestra Testbench with config injection). When used with `--pest`, the foundation test setup replaces the default simple stubs. If `vendor/bin/pint` is available in the output directory, code is automatically formatted after generation.
+- `--base-url`: (Optional) Default base URL for the API. Used in the generated config file as env() fallback value. Only applies when `--foundation` is active.
 
 **Note:** Due to PHP using Backslashes `\`, when specifying the `--namespace`, you need to escape any backslashes like
 so:

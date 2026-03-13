@@ -33,13 +33,13 @@ class PestTestGenerator implements PostProcessor
 
     protected DtoResolver $dtoResolver;
 
-    protected CollectionRequestTestGenerator $collectionTestGenerator;
+    protected $collectionTestGenerator;
 
-    protected SingularGetRequestTestGenerator $singularGetTestGenerator;
+    protected $singularGetTestGenerator;
 
-    protected MutationRequestTestGenerator $mutationTestGenerator;
+    protected $mutationTestGenerator;
 
-    protected DeleteRequestTestGenerator $deleteTestGenerator;
+    protected $deleteTestGenerator;
 
     public function process(
         Config $config,
