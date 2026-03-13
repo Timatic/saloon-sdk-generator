@@ -8,6 +8,7 @@ use Crescat\SaloonSdkGenerator\Data\Generator\GeneratedCode;
 use Crescat\SaloonSdkGenerator\Exceptions\ParserNotRegisteredException;
 use Crescat\SaloonSdkGenerator\Factory;
 use Crescat\SaloonSdkGenerator\Generators\ComposerGenerator;
+use Crescat\SaloonSdkGenerator\Generators\FactoryGenerator;
 use Crescat\SaloonSdkGenerator\Generators\PestTestGenerator;
 use Crescat\SaloonSdkGenerator\Helpers\Utils;
 use Illuminate\Support\Arr;
@@ -27,7 +28,8 @@ class GenerateSdk extends Command
                             {--force : Force overwriting existing files}
                             {--dry : Dry run, will only show the files to be generated, does not create or modify any files.}
                             {--zip : Generate a zip archive containing all the files}
-                            {--pest : Generate Pest test suites for each resource}';
+                            {--pest : Generate Pest test suites for each resource}
+                            {--factory : Generate factory classes for each DTO}';
 
     protected $description = 'Generate an SDK based on an API specification file.';
 
@@ -61,6 +63,10 @@ class GenerateSdk extends Command
 
         if ($this->option('pest')) {
             $generator->registerPostProcessor(new PestTestGenerator);
+        }
+
+        if ($this->option('factory')) {
+            $generator->registerPostProcessor(new FactoryGenerator);
         }
 
         // Always generate composer.json
@@ -121,7 +127,14 @@ class GenerateSdk extends Command
         if ($this->option('pest')) {
             $this->comment("\nTests:");
             foreach ($result->getWithTag('pest') as $test) {
-                $this->line(Utils::formatNamespaceAndClass($test));
+                $this->line($test->path);
+            }
+        }
+
+        if ($this->option('factory')) {
+            $this->comment("\nFactories:");
+            foreach ($result->getWithTag('factories') as $factory) {
+                $this->line($factory->path);
             }
         }
     }
