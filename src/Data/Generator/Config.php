@@ -2,6 +2,8 @@
 
 namespace Crescat\SaloonSdkGenerator\Data\Generator;
 
+use Illuminate\Support\Str;
+
 class Config
 {
     /**
@@ -35,6 +37,13 @@ class Config
         public readonly array $ignoredBodyParams = [],
         public readonly array $ignoredHeaderParams = ['Authorization', 'Content-Type', 'Accept', 'Accept-Language', 'User-Agent'],
         public readonly array $extra = [],
+        public readonly ?string $configKey = null,
+        public readonly ?string $baseUrl = null,
 
     ) {}
+
+    public function resolvedConfigKey(): string
+    {
+        return $this->configKey ?? Str::lower(preg_replace('/Connector$/', '', $this->connectorName));
+    }
 }
