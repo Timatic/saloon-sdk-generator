@@ -144,7 +144,9 @@ class PestTestGenerator implements PostProcessor
         $namespace = Arr::first($this->generatedCode->connectorClass->getNamespaces());
         $classType = Arr::first($namespace->getClasses());
 
-        $constructorParameters = $classType->getMethod('__construct')->getParameters();
+        $constructorParameters = $classType->hasMethod('__construct')
+            ? $classType->getMethod('__construct')->getParameters()
+            : [];
 
         $constructorArgs = [];
         foreach ($constructorParameters as $parameter) {
@@ -323,7 +325,7 @@ class PestTestGenerator implements PostProcessor
         return __DIR__.'/../Stubs/pest-resource-test-func.stub';
     }
 
-    protected function getTestGeneratorForEndpoint(Endpoint $endpoint): CollectionRequestTestGenerator|SingularGetRequestTestGenerator|MutationRequestTestGenerator|DeleteRequestTestGenerator|null
+    protected function getTestGeneratorForEndpoint(Endpoint $endpoint): mixed
     {
         if ($this->collectionTestGenerator->isApplicable($endpoint)) {
             return $this->collectionTestGenerator;

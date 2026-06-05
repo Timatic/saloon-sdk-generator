@@ -122,10 +122,10 @@ class DtoResolver
             return [];
         }
 
-        $constructor = $classType->getMethod('__construct');
-        if (! $constructor) {
+        if (! $classType->hasMethod('__construct')) {
             return [];
         }
+        $constructor = $classType->getMethod('__construct');
 
         foreach ($constructor->getParameters() as $parameter) {
             if ($shouldSkip && $shouldSkip($parameter)) {
