@@ -133,25 +133,25 @@ class GenerateSdk extends Command
             $this->excludePutRequests($specification);
         }
 
-        $generator = new CodeGenerator(
-            config: new Config(
-                connectorName: $connectorName,
-                namespace: $namespace,
-                resourceNamespaceSuffix: 'Resource',
-                requestNamespaceSuffix: 'Requests',
-                dtoNamespaceSuffix: 'Dto',
-                ignoredQueryParams: [
-                    'after',
-                    'order_by',
-                    'per_page',
-                ],
-                extra: [
-                    'excludePut' => $excludePut,
-                ],
-                configKey: $configKey,
-                baseUrl: $baseUrl,
-            ),
+        $config = new Config(
+            connectorName: $connectorName,
+            namespace: $namespace,
+            resourceNamespaceSuffix: 'Resource',
+            requestNamespaceSuffix: 'Requests',
+            dtoNamespaceSuffix: 'Dto',
+            ignoredQueryParams: [
+                'after',
+                'order_by',
+                'per_page',
+            ],
+            extra: [
+                'excludePut' => $excludePut,
+            ],
+            configKey: $configKey,
+            baseUrl: $baseUrl,
         );
+
+        $generator = $this->createCodeGenerator($config);
 
         if ($generateFactories) {
             $generator->registerPostProcessor(new FactoryGenerator);
@@ -190,6 +190,15 @@ class GenerateSdk extends Command
         $this->info("SDK generated successfully in $outputDir");
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Override to customize the CodeGenerator, e.g. to inject custom
+     * Request/Connector/Resource/Dto generators for a specific API.
+     */
+    protected function createCodeGenerator(Config $config): CodeGenerator
+    {
+        return new CodeGenerator(config: $config);
     }
 
     protected function isUrl(string $path): bool
