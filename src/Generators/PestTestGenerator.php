@@ -21,10 +21,6 @@ use Nette\PhpGenerator\PhpFile;
 
 class PestTestGenerator implements PostProcessor
 {
-    public function __construct(
-        protected bool $generateTestSetup = true,
-    ) {}
-
     protected Config $config;
 
     protected ApiSpecification $specification;
@@ -81,14 +77,6 @@ class PestTestGenerator implements PostProcessor
     {
         $classes = [];
 
-        if ($this->shouldGeneratePestFile()) {
-            $classes[] = $this->generateMainPestFile();
-        }
-
-        if ($this->shouldGenerateTestCaseFile()) {
-            $classes[] = $this->generateTestCaseFile();
-        }
-
         $groupedByCollection = collect($this->specification->endpoints)
             ->filter(fn (Endpoint $endpoint) => $this->shouldIncludeEndpoint($endpoint))
             ->groupBy(function (Endpoint $endpoint) {
@@ -102,32 +90,6 @@ class PestTestGenerator implements PostProcessor
         }
 
         return $classes;
-    }
-
-    protected function generateMainPestFile(): TaggedOutputFile
-    {
-        $stub = file_get_contents(__DIR__.'/../Stubs/pest.stub');
-        $stub = str_replace('{{ namespace }}', $this->config->namespace, $stub);
-        $stub = str_replace('{{ name }}', $this->config->connectorName, $stub);
-
-        return new TaggedOutputFile(
-            tag: 'pest',
-            file: $stub,
-            path: 'tests/Pest.php',
-        );
-    }
-
-    protected function generateTestCaseFile(): TaggedOutputFile
-    {
-        $stub = file_get_contents(__DIR__.'/../Stubs/pest-testcase.stub');
-        $stub = str_replace('{{ namespace }}', $this->config->namespace, $stub);
-        $stub = str_replace('{{ serviceProviderName }}', str_replace('Connector', '', $this->config->connectorName), $stub);
-
-        return new TaggedOutputFile(
-            tag: 'pest',
-            file: $stub,
-            path: 'tests/TestCase.php',
-        );
     }
 
     /** @param Endpoint[] $endpoints */
@@ -298,16 +260,6 @@ class PestTestGenerator implements PostProcessor
         }
 
         return str_contains($type, "\\{$this->config->dtoNamespaceSuffix}\\");
-    }
-
-    protected function shouldGeneratePestFile(): bool
-    {
-        return $this->generateTestSetup;
-    }
-
-    protected function shouldGenerateTestCaseFile(): bool
-    {
-        return $this->generateTestSetup;
     }
 
     protected function shouldIncludeEndpoint(Endpoint $endpoint): bool

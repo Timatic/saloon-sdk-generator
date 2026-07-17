@@ -58,6 +58,7 @@ PHP;
         $namespace->addUse('Dotenv\\Dotenv');
         $namespace->addUse('Orchestra\\Testbench\\TestCase', 'Orchestra');
         $namespace->addUse('Saloon\\Laravel\\SaloonServiceProvider');
+        $namespace->addUse('Spatie\\LaravelData\\LaravelDataServiceProvider');
         $namespace->addUse($config->namespace.'\\Providers\\'.$appName.'ServiceProvider');
 
         $class = $namespace->addClass('TestCase');
@@ -84,6 +85,7 @@ PHP;
         $method->setBody(<<<PHP
 return [
     SaloonServiceProvider::class,
+    LaravelDataServiceProvider::class,
     {$appName}ServiceProvider::class,
 ];
 PHP);

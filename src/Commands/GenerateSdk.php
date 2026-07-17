@@ -153,12 +153,6 @@ class GenerateSdk extends Command
             ),
         );
 
-        if ($generateTests) {
-            $generator->registerPostProcessor(new PestTestGenerator(
-                generateTestSetup: ! $generateFoundation,
-            ));
-        }
-
         if ($generateFactories) {
             $generator->registerPostProcessor(new FactoryGenerator);
         }
@@ -166,7 +160,11 @@ class GenerateSdk extends Command
         if ($generateFoundation) {
             $generator->registerPostProcessor(new ConfigPostProcessor);
             $generator->registerPostProcessor(new ServiceProviderPostProcessor);
-            $generator->registerPostProcessor(new TestSetupPostProcessor);
+
+            if ($generateTests) {
+                $generator->registerPostProcessor(new PestTestGenerator);
+                $generator->registerPostProcessor(new TestSetupPostProcessor);
+            }
         }
 
         $result = $generator->run($specification);
