@@ -171,7 +171,13 @@ class PestTestGenerator implements PostProcessor
         $imports = [];
         foreach ($endpoints as $endpoint) {
             $requestClassName = $this->getRequestClassName($endpoint);
-            $imports[] = "use {$this->config->namespace}\\{$this->config->requestNamespaceSuffix}\\{$resourceName}\\{$requestClassName};";
+            $import = "use {$this->config->namespace}\\{$this->config->requestNamespaceSuffix}\\{$resourceName}\\{$requestClassName}";
+
+            if ($requestClassName === $resourceName) {
+                $import .= " as {$requestClassName}Request";
+            }
+
+            $imports[] = "{$import};";
         }
 
         $fileStub = str_replace('{{ requestImports }}', implode("\n", $imports), $fileStub);
