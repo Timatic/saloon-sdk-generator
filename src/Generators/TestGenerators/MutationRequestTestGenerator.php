@@ -101,6 +101,15 @@ class MutationRequestTestGenerator
             );
         }
 
+        // When the endpoint has no path/query/header args, {{ methodArguments }}
+        // substitutes to whitespace only, leaving a dangling leading comma before
+        // `data: $bodyData` — strip it so the constructor call stays valid PHP.
+        $functionStub = preg_replace(
+            '/\(\s*,\n(\s*)data: \$bodyData/',
+            "(\n\$1data: \$bodyData",
+            $functionStub
+        );
+
         return $functionStub;
     }
 
