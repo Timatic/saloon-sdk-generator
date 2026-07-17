@@ -10,6 +10,8 @@ use Crescat\SaloonSdkGenerator\Data\Generator\EnumMockValue;
 use Crescat\SaloonSdkGenerator\Data\Generator\GeneratedCode;
 use Crescat\SaloonSdkGenerator\Generators\Traits\DtoAssertions;
 use Crescat\SaloonSdkGenerator\Helpers\DtoResolver;
+use Nette\PhpGenerator\Parameter;
+use Nette\PhpGenerator\PromotedParameter;
 
 class MutationRequestTestGenerator
 {
@@ -117,20 +119,9 @@ class MutationRequestTestGenerator
             return "new {$className}()";
         }
 
-        // Reflect on the DTO to get parameter types
-        $parametersByName = [];
-        try {
-            $reflection = new \ReflectionClass($dtoClassName);
-            $constructor = $reflection->getConstructor();
-
-            if ($constructor) {
-                foreach ($constructor->getParameters() as $param) {
-                    $parametersByName[$param->getName()] = $param;
-                }
-            }
-        } catch (\ReflectionException $e) {
-            // If reflection fails, continue without type info
-        }
+        // Get parameter types from generated code metadata (not runtime reflection —
+        // the target DTO class isn't necessarily autoloadable during generation).
+        $parametersByName = $this->getDtoPropertiesFromGeneratedCode($dtoClassName);
 
         $parameters = [];
         foreach ($mockData as $key => $value) {
@@ -147,32 +138,14 @@ class MutationRequestTestGenerator
     /**
      * Format a value for a specific parameter, using type information if available
      */
-    protected function formatValueForParameter(mixed $value, ?\ReflectionParameter $param): string
+    protected function formatValueForParameter(mixed $value, Parameter|PromotedParameter|null $param): string
     {
         if ($value instanceof EnumMockValue) {
             return "{$value->shortName}::{$value->caseName}";
         }
 
-        // Check if parameter is Carbon/DateTime type
         if ($param) {
-            $type = $param->getType();
-
-            // Handle both ReflectionNamedType and ReflectionUnionType
-            $typeName = null;
-            if ($type instanceof \ReflectionNamedType) {
-                $typeName = $type->getName();
-            } elseif ($type instanceof \ReflectionUnionType) {
-                // For union types, check each type
-                foreach ($type->getTypes() as $unionType) {
-                    if ($unionType instanceof \ReflectionNamedType) {
-                        $name = $unionType->getName();
-                        if ($name !== 'null') {
-                            $typeName = $name;
-                            break;
-                        }
-                    }
-                }
-            }
+            $typeName = $this->resolveConcreteTypeName($param->getType());
 
             if ($typeName && (str_contains($typeName, 'Carbon') || str_contains($typeName, 'DateTime'))) {
                 if (is_string($value)) {

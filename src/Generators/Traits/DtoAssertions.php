@@ -174,6 +174,27 @@ trait DtoAssertions
     }
 
     /**
+     * Normalize a Nette parameter type string to a single concrete type name.
+     * Strips nullable union members (e.g. "string|null", "int|null") down to
+     * the first concrete type, defaulting to 'string' when nothing concrete remains.
+     */
+    protected function resolveConcreteTypeName(?string $typeName): ?string
+    {
+        if ($typeName && str_contains($typeName, '|')) {
+            $types = explode('|', $typeName);
+            $concreteTypes = array_filter($types, fn ($t) => ! in_array(trim($t), ['null', 'mixed']));
+
+            if (! empty($concreteTypes)) {
+                return trim(reset($concreteTypes));
+            }
+
+            return 'string';
+        }
+
+        return $typeName;
+    }
+
+    /**
      * Check if a type string represents a DTO class
      */
     protected function isDtoClass(?string $typeName): bool
@@ -290,23 +311,7 @@ trait DtoAssertions
     {
         $nullable = $parameter->isNullable();
 
-        // Normalize type name (remove nullable prefix)
-        $typeName = $parameter->getType();
-
-        // Handle union types (e.g., "string|null", "string|float", "int|null")
-        if ($typeName && str_contains($typeName, '|')) {
-            $types = explode('|', $typeName);
-            // Filter out 'null' and 'mixed', get the first concrete type
-            $concreteTypes = array_filter($types, fn ($t) => ! in_array(trim($t), ['null', 'mixed']));
-
-            if (! empty($concreteTypes)) {
-                // Use the first concrete type
-                $typeName = trim(reset($concreteTypes));
-            } else {
-                // If all types are null/mixed, default to string
-                $typeName = 'string';
-            }
-        }
+        $typeName = $this->resolveConcreteTypeName($parameter->getType());
 
         // Handle nested DTO types recursively
         if ($this->isDtoClass($typeName)) {
