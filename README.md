@@ -175,22 +175,24 @@ Recommended first-time setup:
 ```shell
 sdkgenerator generate:sdk API_SPEC_FILE.{json|yaml|yml} \
     --foundation \
-    --name=MyApi \
+    --connector-name=MyApiConnector \
     --base-url=https://api.example.com \
     --output=./my-sdk \
     --force
 ```
 
+The root namespace is read from the `autoload.psr-4` section of the `composer.json` in the output directory — that is why `composer init` is required first.
+
 What `--foundation` does:
 - Generates a Laravel config file with the base URL as `env()` fallback value
 - Generates a service provider that registers the connector
 - Generates a test setup with Orchestra Testbench and config injection
-- When used with `--pest`, the foundation test setup replaces the default simple stubs
+- Updates the SDK's `composer.json` (autoload mappings, scripts, Laravel auto-discovery) and runs `composer require` for the SDK dependencies
 - If `vendor/bin/pint` is available in the output directory, code is automatically formatted after generation
 
 ### Re-runs: without `--foundation`
 
-On subsequent runs, the generator automatically reads the connector name and base URL from the existing config file in the output directory. You don't need to repeat `--name` and `--base-url`:
+On subsequent runs, the generator automatically reads the connector name and base URL from the existing config file in the output directory. You don't need to repeat `--connector-name` and `--base-url`:
 
 ```shell
 sdkgenerator generate:sdk API_SPEC_FILE.{json|yaml|yml} \
@@ -198,51 +200,37 @@ sdkgenerator generate:sdk API_SPEC_FILE.{json|yaml|yml} \
     --force
 ```
 
-You can still pass `--name` or `--base-url` to override the values read from the config file.
+You can still pass `--connector-name` or `--base-url` to override the values read from the config file. Without `--foundation`, the output directory must already contain a generated SDK (a `config/*.php` file); otherwise the command fails and asks you to use `--foundation`.
 
 ### Command reference
 
 ```shell
 sdkgenerator generate:sdk API_SPEC_FILE.{json|yaml|yml}
      --type={postman|openapi}
-    [--name=SDK_NAME]
     [--output=OUTPUT_PATH]
-    [--namespace=Company\\Integration]
-    [--force]
-    [--dry]
-    [--zip]
-    [--pest]
-    [--factory]
+    [--connector-name=CONNECTOR_NAME]
+    [--skip-tests]
+    [--skip-factories]
     [--foundation]
     [--base-url=BASE_URL]
+    [--dry-run]
+    [--force]
+    [--exclude-put-requests]
 ```
 
 | Option | Description |
 |--------|-------------|
-| `API_SPEC_FILE` | Path to the API specification file (JSON or YAML format) |
+| `API_SPEC_FILE` | Path or URL to the API specification file (JSON or YAML format) |
 | `--type` | Type of API specification: `postman` or `openapi` (default: `openapi`) |
-| `--name` | Name of the generated SDK. Required with `--foundation`, auto-detected on re-runs from existing config |
-| `--namespace` | Root namespace for the SDK (default: `App\\Sdk`) |
-| `--output` | Output path for generated code (default: `./build`) |
-| `--force` | Force overwriting existing files |
-| `--dry` | Dry run — show files without writing them |
-| `--zip` | Generate a zip archive of all files |
-| `--pest` | Generate Pest test suites for each resource |
-| `--factory` | Generate factory classes for each DTO |
-| `--foundation` | Generate Laravel foundation files (config, service provider, test setup) |
+| `--output` / `-o` | Output directory for the generated SDK (default: `./output`) |
+| `--connector-name` | Name of the Connector class (e.g. `MyApiConnector`). The config key is derived from this. Required with `--foundation`, auto-detected on re-runs from existing config |
+| `--skip-tests` | Skip generating Pest test suites |
+| `--skip-factories` | Skip generating Faker factories for DTOs |
+| `--foundation` | Generate Laravel foundation files (config, service provider, test setup) and set up composer |
 | `--base-url` | Base URL for the API. Used in config as `env()` fallback. Auto-detected on re-runs from existing config |
-
-**Note:** Due to PHP using Backslashes `\`, when specifying the `--namespace`, you need to escape any backslashes like
-so:
-
-```shell
-sdkgenerator generate:sdk ./tests/Samples/paddle.json 
-  --force 
-  --type=postman 
-  --name=Paddle  
-  --output ./paddle-sdk/src 
-  --namespace=Your\\Sdk\\Namespace # <-- Note the "\\"
-```
+| `--dry-run` | Show what would be generated without writing files |
+| `--force` | Force overwriting existing files |
+| `--exclude-put-requests` | Exclude PUT requests from the generated SDK |
 
 ## Converting Swagger v1 or v2 definitions to the OpenAPI 3.0 format
 

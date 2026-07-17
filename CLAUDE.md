@@ -11,7 +11,10 @@ The Saloon SDK Generator is a Laravel Zero CLI application that generates PHP SD
 ### Development Commands
 ```bash
 # Run the CLI in development
-./codegen generate:sdk API_SPEC_FILE.{json|yaml|yml} --type={postman|openapi} [--name=SDK_NAME] [--output=OUTPUT_PATH] [--namespace=Company\\Integration] [--force] [--dry] [--zip]
+./codegen generate:sdk API_SPEC_FILE.{json|yaml|yml} --type={postman|openapi} [--output=OUTPUT_PATH] [--connector-name=MyApiConnector] [--skip-tests] [--skip-factories] [--foundation] [--base-url=BASE_URL] [--dry-run] [--force] [--exclude-put-requests]
+
+# The root namespace is read from composer.json (autoload.psr-4) in the output directory.
+# Sample SDKs are generated via scripts/generate-sample.sh, which bootstraps composer.json and a config stub.
 
 # Convert Swagger v1/v2 to OpenAPI 3.0
 ./codegen convert old.json [output.json]
