@@ -2,6 +2,8 @@
 
 namespace Crescat\SaloonSdkGenerator\Services;
 
+use Illuminate\Support\Str;
+
 class ConfigValuesService
 {
     /**
@@ -53,7 +55,7 @@ class ConfigValuesService
         preg_match("/env\('[A-Z_]+_BASE_URL',\s*'([^']+)'\)/", $content, $matches);
 
         return [
-            'connectorName' => ucfirst($configKey).'Connector',
+            'connectorName' => Str::studly($configKey).'Connector',
             'baseUrl' => $matches[1] ?? null,
         ];
     }

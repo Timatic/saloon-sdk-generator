@@ -32,6 +32,6 @@ class Config
 
     public static function deriveConfigKey(string $connectorName): string
     {
-        return Str::lower(preg_replace('/Connector$/', '', $connectorName));
+        return Str::kebab(preg_replace('/Connector$/', '', $connectorName));
     }
 }
