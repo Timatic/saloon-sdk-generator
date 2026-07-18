@@ -50,6 +50,15 @@ class DtoResolver
     {
         $className = $this->schemaNameToDtoClassName($schemaName);
 
+        return $this->classNameToFqn($className);
+    }
+
+    /**
+     * Build fully qualified DTO class name from an already-resolved class name.
+     * Unlike buildDtoFqn(), does not re-run schema-name normalization.
+     */
+    protected function classNameToFqn(string $className): string
+    {
         return "{$this->config->namespace}\\{$this->config->dtoNamespaceSuffix}\\{$className}";
     }
 
@@ -191,7 +200,7 @@ class DtoResolver
             return null;
         }
 
-        return $this->buildDtoFqn($className);
+        return $this->classNameToFqn($className);
     }
 
     /**
@@ -231,7 +240,7 @@ class DtoResolver
             return null;
         }
 
-        return $this->buildDtoFqn($className);
+        return $this->classNameToFqn($className);
     }
 
     /**

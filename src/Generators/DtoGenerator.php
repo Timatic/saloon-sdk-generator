@@ -37,7 +37,7 @@ class DtoGenerator extends Generator
                     continue;
                 }
 
-                $this->generateDtoClass(NameHelper::safeClassName($className), $schema);
+                $this->generateDtoClass($className, $schema);
             }
         }
 
