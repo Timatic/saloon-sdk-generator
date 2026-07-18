@@ -75,7 +75,7 @@ class FactoryGenerator implements PostProcessor
         $this->generated[$factoryName] = new TaggedOutputFile(
             tag: 'factories',
             file: (string) $classFile,
-            path: "{$this->config->factoryNamespaceSuffix}/{$factoryName}.php",
+            path: "factories/{$factoryName}.php",
         );
 
         return $classFile;
