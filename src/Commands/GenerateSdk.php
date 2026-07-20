@@ -162,9 +162,12 @@ class GenerateSdk extends Command
             $generator->registerPostProcessor(new ServiceProviderPostProcessor);
 
             if ($generateTests) {
-                $generator->registerPostProcessor(new PestTestGenerator);
                 $generator->registerPostProcessor(new TestSetupPostProcessor);
             }
+        }
+
+        if ($generateTests) {
+            $generator->registerPostProcessor(new PestTestGenerator);
         }
 
         $result = $generator->run($specification);
