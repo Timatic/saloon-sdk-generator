@@ -175,6 +175,8 @@ class GenerateSdk extends Command
             return self::SUCCESS;
         }
 
+        $this->cleanGeneratedDirectories($outputDir, $config, $generateFactories, $generateTests);
+
         $this->dumpGeneratedFiles($result);
 
         if ($generateFoundation) {
@@ -275,6 +277,46 @@ class GenerateSdk extends Command
                 $this->line($file->path);
             }
         }
+    }
+
+    protected function cleanGeneratedDirectories(string $outputDir, Config $config, bool $generateFactories, bool $generateTests): void
+    {
+        $directories = [
+            "$outputDir/src/{$config->dtoNamespaceSuffix}",
+            "$outputDir/src/{$config->requestNamespaceSuffix}",
+            "$outputDir/src/{$config->resourceNamespaceSuffix}",
+        ];
+
+        if ($generateFactories) {
+            $directories[] = "$outputDir/factories";
+        }
+
+        if ($generateTests) {
+            $directories[] = "$outputDir/tests/Requests";
+        }
+
+        foreach ($directories as $directory) {
+            $this->deleteDirectory($directory);
+        }
+    }
+
+    protected function deleteDirectory(string $directory): void
+    {
+        if (! is_dir($directory)) {
+            return;
+        }
+
+        foreach (scandir($directory) as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+
+            $path = "$directory/$item";
+
+            is_dir($path) ? $this->deleteDirectory($path) : unlink($path);
+        }
+
+        rmdir($directory);
     }
 
     protected function dumpGeneratedFiles(GeneratedCode $result): void
