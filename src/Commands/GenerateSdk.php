@@ -3,6 +3,7 @@
 namespace Crescat\SaloonSdkGenerator\Commands;
 
 use Crescat\SaloonSdkGenerator\CodeGenerator;
+use Crescat\SaloonSdkGenerator\Contracts\PostProcessor;
 use Crescat\SaloonSdkGenerator\Data\Generator\ApiSpecification;
 use Crescat\SaloonSdkGenerator\Data\Generator\Config;
 use Crescat\SaloonSdkGenerator\Data\Generator\Endpoint;
@@ -167,7 +168,7 @@ class GenerateSdk extends Command
         }
 
         if ($generateTests) {
-            $generator->registerPostProcessor(new PestTestGenerator);
+            $generator->registerPostProcessor($this->createTestPostProcessor());
         }
 
         $result = $generator->run($specification);
@@ -204,6 +205,15 @@ class GenerateSdk extends Command
     protected function createCodeGenerator(Config $config): CodeGenerator
     {
         return new CodeGenerator(config: $config);
+    }
+
+    /**
+     * Override to customize the Pest test PostProcessor, e.g. to change how
+     * endpoints are routed to test generators for a specific API.
+     */
+    protected function createTestPostProcessor(): PostProcessor
+    {
+        return new PestTestGenerator;
     }
 
     protected function isUrl(string $path): bool
