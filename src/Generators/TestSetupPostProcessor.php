@@ -83,6 +83,10 @@ parameters:
     paths:
         - src
         - Factories
+    ignoreErrors:
+        -
+            identifier: trait.unused
+            reportUnmatched: false
 
 NEON;
 
