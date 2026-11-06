@@ -20,6 +20,8 @@ class TestSetupPostProcessor implements PostProcessor
         return [
             $this->generatePestFile($config),
             $this->generateTestCaseFile($config),
+            $this->generatePhpunitConfigFile(),
+            $this->generatePhpstanConfigFile(),
         ];
     }
 
@@ -38,6 +40,56 @@ PHP;
             tag: 'foundation',
             file: $content,
             path: 'tests/Pest.php',
+        );
+    }
+
+    private function generatePhpunitConfigFile(): TaggedOutputFile
+    {
+        $content = <<<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true">
+    <testsuites>
+        <testsuite name="Tests">
+            <directory>./tests</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory suffix=".php">./src</directory>
+        </include>
+    </source>
+</phpunit>
+
+XML;
+
+        return new TaggedOutputFile(
+            tag: 'foundation',
+            file: $content,
+            path: 'phpunit.xml',
+        );
+    }
+
+    private function generatePhpstanConfigFile(): TaggedOutputFile
+    {
+        $content = <<<'NEON'
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: 5
+    paths:
+        - src
+        - Factories
+
+NEON;
+
+        return new TaggedOutputFile(
+            tag: 'foundation',
+            file: $content,
+            path: 'phpstan.neon',
         );
     }
 
