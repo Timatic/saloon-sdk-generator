@@ -65,7 +65,6 @@ class RequestGenerator extends Generator
         $classFile = new PhpFile;
         $namespace = $classFile
             ->addNamespace("{$this->config->namespace}\\{$this->config->requestNamespaceSuffix}\\{$resourceName}")
-            // Added before any imports so Nette aliases DTOs that share the request class name
             ->add($classType);
 
         $classType->setExtends(Request::class)
@@ -255,7 +254,7 @@ class RequestGenerator extends Generator
         $dtoType = $this->getRequestBodyDtoType($endpoint);
 
         if ($dtoType) {
-            $namespace->addUse($dtoType);
+            $this->addDtoUse($namespace, $classType, $dtoType);
             $typeHint = $dtoType.'|array|null';
         } else {
             $namespace->addUse(Data::class);
@@ -393,7 +392,7 @@ class RequestGenerator extends Generator
 
         // Add imports
         $namespace->addUse(Response::class);
-        $namespace->addUse($dtoFqcn);
+        $dtoAlias = $this->addDtoUse($namespace, $classType, $dtoFqcn);
 
         // Add createDtoFromResponse method
         $method = $classType->addMethod('createDtoFromResponse');
@@ -402,7 +401,7 @@ class RequestGenerator extends Generator
         if ($this->isCollectionRequest($endpoint)) {
             $namespace->addUse(Collection::class);
             $method->setReturnType(Collection::class);
-            $method->addComment("@return Collection<int, {$dtoClassName}>");
+            $method->addComment("@return Collection<int, {$dtoAlias}>");
         } else {
             $method->setReturnType($dtoFqcn);
         }
@@ -439,5 +438,18 @@ class RequestGenerator extends Generator
                 $method->addBody('return '.$dtoClassName.'::from($response->json());');
             }
         }
+    }
+
+    /**
+     * Imports the DTO, aliased with a "Dto" suffix when it shares its short name with the request class.
+     */
+    protected function addDtoUse(PhpNamespace $namespace, ClassType $classType, string $dtoFqcn): string
+    {
+        $shortName = Str::afterLast($dtoFqcn, '\\');
+        $alias = strcasecmp($shortName, $classType->getName()) === 0 ? "{$shortName}Dto" : $shortName;
+
+        $namespace->addUse($dtoFqcn, $alias);
+
+        return $alias;
     }
 }

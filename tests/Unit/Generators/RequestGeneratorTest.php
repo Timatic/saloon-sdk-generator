@@ -217,3 +217,36 @@ test('No hydration method when response is not specified', function () {
 
     expect($class->hasMethod('createDtoFromResponse'))->toBeFalse();
 });
+
+test('DTO sharing the request class name is imported with a Dto suffix', function () {
+    $generator = new RequestGenerator(new Config(
+        connectorName: 'MyConnector',
+        namespace: 'VendorName'
+    ));
+
+    $spec = new ApiSpecification(
+        name: 'ApiName',
+        description: 'Example API',
+        baseUrl: new BaseUrl(url: 'https://api.example.com'),
+        securityRequirements: [],
+        components: new Components,
+        endpoints: [
+            new Endpoint(
+                name: 'getUser',
+                method: Method::GET,
+                pathSegments: ['users', ':id'],
+                collection: 'Users',
+                response: ['schema' => 'GetUserRequest'],
+                description: 'Get a single user',
+                pathParameters: [new Parameter('int', false, 'id', 'User ID')],
+                queryParameters: [],
+                bodyParameters: []
+            ),
+        ]
+    );
+
+    $phpFiles = $generator->generate($spec);
+
+    expect($phpFiles[0]->getNamespaces()['VendorName\Requests\Users']->getUses())
+        ->toHaveKey('GetUserRequestDto', 'VendorName\Dto\GetUserRequest');
+});
