@@ -170,7 +170,7 @@ class PestTestGenerator implements PostProcessor
             $functionStub = str_replace('{{ resourceName }}', $resourceNameSafe = NameHelper::safeVariableName($resourceName), $functionStub);
             $functionStub = str_replace('{{ methodName }}', $methodNameSafe = $this->getMethodName($endpoint, $requestClassName), $functionStub);
             $functionStub = str_replace('{{ fixtureName }}', Str::camel($resourceNameSafe.'.'.$methodNameSafe), $functionStub);
-            $description = "calls the {$methodNameSafe} method in the {$resourceName} resource";
+            $description = 'sends the '.Str::finish($requestClassName, 'Request');
             $functionStub = str_replace('{{ testDescription }}', $description, $functionStub);
 
             $methodArguments = [];

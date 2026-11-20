@@ -247,3 +247,34 @@ it('handles mixed DTO and primitive parameters correctly', function () {
     // Should not import primitive types
     expect($testContent)->not->toContain('use string;');
 });
+
+it('names each test after the request it sends', function () {
+    $config = new Config(
+        connectorName: 'TestAPI',
+        namespace: 'Acme\\TestSDK',
+        resourceNamespaceSuffix: 'Resource',
+        requestNamespaceSuffix: 'Requests',
+        dtoNamespaceSuffix: 'Dto'
+    );
+
+    $apiSpec = new ApiSpecification(
+        name: 'Test API',
+        description: 'A test API',
+        baseUrl: new BaseUrl('https://api.example.com'),
+        components: new Components(schemas: [], securitySchemes: []),
+        endpoints: [new Endpoint(name: 'CreateUser', method: Method::POST, pathSegments: ['users'], collection: 'Users', response: null)]
+    );
+
+    $connectorGenerator = new ConnectorGenerator;
+    $connectorGenerator->setConfig($config);
+
+    $generatedCode = new GeneratedCode;
+    $generatedCode->connectorClass = $connectorGenerator->generate($apiSpec);
+
+    $usersTest = collect((new PestTestGenerator)->process($config, $apiSpec, $generatedCode))
+        ->first(fn ($file) => str_contains($file->path, 'UsersTest.php'));
+
+    expect($usersTest->file)
+        ->toContain("it('sends the CreateUserRequest'")
+        ->not->toContain('resource');
+});
