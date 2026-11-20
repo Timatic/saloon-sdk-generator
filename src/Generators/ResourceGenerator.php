@@ -12,6 +12,7 @@ use Nette\PhpGenerator\ClassType;
 use Nette\PhpGenerator\Literal;
 use Nette\PhpGenerator\Method;
 use Nette\PhpGenerator\PhpFile;
+use Nette\PhpGenerator\PhpNamespace;
 use Saloon\Http\BaseResource;
 use Saloon\Http\Response;
 
@@ -194,14 +195,13 @@ class ResourceGenerator extends Generator
      */
     protected function getRequestClassName(Endpoint $endpoint): string
     {
-        $pathBasedName = NameHelper::pathBasedName($endpoint);
+        $className = NameHelper::requestClassName($endpoint->name ?: NameHelper::pathBasedName($endpoint));
 
-        // Optionally append "Request" suffix if configured
-        if ($this->config->suffixRequestClasses && ! str_ends_with($pathBasedName, 'Request')) {
-            $pathBasedName .= 'Request';
+        if ($this->config->suffixRequestClasses && ! str_ends_with($className, 'Request')) {
+            $className .= 'Request';
         }
 
-        return NameHelper::resourceClassName($endpoint->name ?: $pathBasedName);
+        return $className;
     }
 
     /**
@@ -212,7 +212,7 @@ class ResourceGenerator extends Generator
      */
     protected function getMethodName(Endpoint $endpoint, string $requestClassName): string
     {
-        return NameHelper::safeVariableName($requestClassName);
+        return NameHelper::safeVariableName(preg_replace('/Request$/', '', $requestClassName) ?: $requestClassName);
     }
 
     /**
@@ -272,7 +272,7 @@ class ResourceGenerator extends Generator
      * </code>
      *
      * @param  Method  $method  The resource method being generated
-     * @param  \Nette\PhpGenerator\PhpNamespace  $namespace  The namespace to add imports to
+     * @param  PhpNamespace  $namespace  The namespace to add imports to
      * @param  array  $args  The method arguments array (pass by reference to modify)
      * @param  Endpoint  $endpoint  The endpoint being generated
      */

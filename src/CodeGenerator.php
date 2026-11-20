@@ -86,7 +86,7 @@ class CodeGenerator
 
         $generatedCode = new GeneratedCode(
             requestClasses: $this->requestGenerator->generate($specification),
-            resourceClasses: $this->resourceGenerator->generate($specification),
+            resourceClasses: $this->config->generateResources ? $this->resourceGenerator->generate($specification) : [],
             dtoClasses: $this->dtoGenerator->generate($specification),
             connectorClass: $this->connectorGenerator->generate($specification),
             additionalFiles: $this->runGenerators($specification),
