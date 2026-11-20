@@ -155,7 +155,7 @@ class GenerateSdk extends Command
         $generator = $this->createCodeGenerator($config);
 
         if ($generateFactories) {
-            $generator->registerPostProcessor(new FactoryGenerator);
+            $generator->registerPostProcessor($this->createFactoryPostProcessor());
         }
 
         if ($generateFoundation) {
@@ -214,6 +214,11 @@ class GenerateSdk extends Command
     protected function createTestPostProcessor(): PostProcessor
     {
         return new PestTestGenerator;
+    }
+
+    protected function createFactoryPostProcessor(): PostProcessor
+    {
+        return new FactoryGenerator;
     }
 
     protected function isUrl(string $path): bool
