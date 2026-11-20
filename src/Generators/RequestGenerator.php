@@ -64,7 +64,9 @@ class RequestGenerator extends Generator
 
         $classFile = new PhpFile;
         $namespace = $classFile
-            ->addNamespace("{$this->config->namespace}\\{$this->config->requestNamespaceSuffix}\\{$resourceName}");
+            ->addNamespace("{$this->config->namespace}\\{$this->config->requestNamespaceSuffix}\\{$resourceName}")
+            // Added before any imports so Nette aliases DTOs that share the request class name
+            ->add($classType);
 
         $classType->setExtends(Request::class)
             ->setComment($endpoint->name)
@@ -179,8 +181,7 @@ class RequestGenerator extends Generator
         $namespace
             ->addUse(SaloonHttpMethod::class)
             ->addUse(DateTime::class)
-            ->addUse(Request::class)
-            ->add($classType);
+            ->addUse(Request::class);
 
         // Hook: Allow final modifications to generated class
         $this->afterRequestClassGenerated($classFile, $endpoint);
@@ -225,7 +226,7 @@ class RequestGenerator extends Generator
      *
      *
      * @param  ClassType  $classType  The class being generated
-     * @param  \Nette\PhpGenerator\PhpNamespace  $namespace  The namespace to add imports to
+     * @param  PhpNamespace  $namespace  The namespace to add imports to
      * @param  Endpoint  $endpoint  The endpoint being generated
      */
     protected function customizeRequestClass(ClassType $classType, $namespace, Endpoint $endpoint): void
@@ -239,9 +240,9 @@ class RequestGenerator extends Generator
      * Called after standard parameters but only when endpoint has NO body parameters.
      * Use this to add custom constructor parameters and defaultBody method.
      *
-     * @param  \Nette\PhpGenerator\Method  $classConstructor  The constructor method
+     * @param  Method  $classConstructor  The constructor method
      * @param  ClassType  $classType  The class being generated
-     * @param  \Nette\PhpGenerator\PhpNamespace  $namespace  The namespace to add imports to
+     * @param  PhpNamespace  $namespace  The namespace to add imports to
      * @param  Endpoint  $endpoint  The endpoint being generated
      */
     protected function customizeConstructor($classConstructor, ClassType $classType, $namespace, Endpoint $endpoint): void
@@ -297,7 +298,7 @@ class RequestGenerator extends Generator
      * Override this to customize how the defaultQuery method is generated.
      *
      * @param  ClassType  $classType  The class being generated
-     * @param  \Nette\PhpGenerator\PhpNamespace  $namespace  The namespace to add imports to
+     * @param  PhpNamespace  $namespace  The namespace to add imports to
      * @param  array  $queryParams  Remaining query parameters after filtering
      * @param  Endpoint  $endpoint  The endpoint being generated
      */

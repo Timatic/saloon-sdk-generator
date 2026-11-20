@@ -60,7 +60,9 @@ class ConnectorGenerator extends Generator
             ->addUse(Connector::class);
 
         $this->addAuthenticators($namespace, $classType, $specification);
-        $this->addMethodsForResources($namespace, $classType, $specification);
+        if ($this->config->generateResources) {
+            $this->addMethodsForResources($namespace, $classType, $specification);
+        }
 
         $namespace->add($classType);
 

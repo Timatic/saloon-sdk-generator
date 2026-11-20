@@ -130,10 +130,19 @@ class PestTestGenerator implements PostProcessor
 
         $fileStub = str_replace('{{ connectorArgs }}', Str::wrap(implode(",\n\t\t", $constructorArgs), "\n\t\t", "\n\t"), $fileStub);
 
+        $dtoImports = $this->generateDtoImports($endpoints);
+        $importedShortNames = array_map(fn (string $import) => Str::of($import)->rtrim(';')->afterLast('\\')->toString(), $dtoImports);
+        $requestNamespace = "{$this->config->namespace}\\{$this->config->requestNamespaceSuffix}\\{$resourceName}";
+
         $imports = [];
         foreach ($endpoints as $endpoint) {
             $requestClassName = $this->getRequestClassName($endpoint);
-            $import = "use {$this->config->namespace}\\{$this->config->requestNamespaceSuffix}\\{$resourceName}\\{$requestClassName}";
+
+            if (in_array($requestClassName, $importedShortNames, true)) {
+                continue;
+            }
+
+            $import = "use {$requestNamespace}\\{$requestClassName}";
 
             if ($requestClassName === $resourceName) {
                 $import .= " as {$requestClassName}Request";
@@ -143,13 +152,16 @@ class PestTestGenerator implements PostProcessor
         }
 
         $fileStub = str_replace('{{ requestImports }}', implode("\n", $imports), $fileStub);
-
-        $dtoImports = $this->generateDtoImports($endpoints);
         $fileStub = str_replace('{{ dtoImports }}', implode("\n", $dtoImports), $fileStub);
 
         foreach ($endpoints as $endpoint) {
             $requestClassName = $this->getRequestClassName($endpoint);
-            $requestClassNameAlias = $requestClassName == $resourceName ? "{$requestClassName}Request" : null;
+            $requestClassNameAlias = match (true) {
+                // A DTO with the same short name is imported, so refer to the request by FQN
+                in_array($requestClassName, $importedShortNames, true) => "\\{$requestNamespace}\\{$requestClassName}",
+                $requestClassName === $resourceName => "{$requestClassName}Request",
+                default => null,
+            };
 
             $functionStub = file_get_contents($this->getTestFunctionStubPath($endpoint));
 
@@ -317,7 +329,7 @@ class PestTestGenerator implements PostProcessor
 
     protected function getMethodName(Endpoint $endpoint, string $requestClassName): string
     {
-        return NameHelper::safeVariableName($requestClassName);
+        return NameHelper::safeVariableName(preg_replace('/Request$/', '', $requestClassName) ?: $requestClassName);
     }
 
     protected function getTestPath(string $resourceName): string

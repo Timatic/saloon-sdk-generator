@@ -88,7 +88,7 @@ it('generates test with DTO imports when endpoint has DTO parameters', function 
     $testContent = $usersTest->file;
 
     // Should import the request class
-    expect($testContent)->toContain('use Acme\TestSDK\Requests\Users\CreateUser;');
+    expect($testContent)->toContain('use Acme\TestSDK\Requests\Users\CreateUserRequest;');
 
     // Should import DTOs that are used as parameters
     expect($testContent)->toContain('use Acme\TestSDK\Dto\UserRequest;');
